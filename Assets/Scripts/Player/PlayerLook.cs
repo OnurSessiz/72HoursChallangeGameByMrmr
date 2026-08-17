@@ -30,12 +30,26 @@ public class PlayerLook : MonoBehaviour
     private float _yaw;
     private float _pitch;
 
+    /// <summary>Döndürülen kamera pivotu (cutscene/jump scare gibi sistemler okuyabilir).</summary>
+    public Transform CameraPivot => cameraPivot;
+
+    /// <summary>
+    /// Yaw/pitch'i pivotun ŞU ANKİ rotasyonundan yeniden okur. Kamera dışarıdan
+    /// çevrildiyse (ör. jump scare zorla baktırma) script tekrar aktif edilmeden önce
+    /// çağrılmalı; yoksa kamera eski açısına zıplar.
+    /// </summary>
+    public void SyncFromPivot()
+    {
+        Vector3 e = cameraPivot.eulerAngles;
+        _yaw = e.y;
+        // eulerAngles 0..360 döner; pitch'i işaretli aralığa çevirip clamp'le.
+        _pitch = Mathf.Clamp(e.x > 180f ? e.x - 360f : e.x, minPitch, maxPitch);
+    }
+
     private void Start()
     {
         // Başlangıç açılarını mevcut pivot rotasyonundan al.
-        Vector3 e = cameraPivot.eulerAngles;
-        _yaw = e.y;
-        _pitch = e.x;
+        SyncFromPivot();
 
         if (lockCursor)
         {

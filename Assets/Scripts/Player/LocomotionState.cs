@@ -60,7 +60,10 @@ public class LocomotionState : IPlayerState
     {
         // Ground check + tek seferlik impulse.
         if (_ctx.IsGrounded())
+        {
+            _ctx.SetAnimTrigger("Jump");
             _ctx.Rb.AddForce(Vector3.up * _ctx.JumpForce, ForceMode.Impulse);
+        }
     }
 
     private void OnDash()

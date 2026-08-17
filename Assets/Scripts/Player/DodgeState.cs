@@ -19,6 +19,7 @@ public class DodgeState : IPlayerState
     public void Enter()
     {
         _ctx.MarkDodgeUsed();
+        _ctx.SetAnimTrigger("Dodge");
         _ctx.IsInvincible = true;               // i-frame aç
         _endTime = Time.time + _ctx.DodgeDuration;
 

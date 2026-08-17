@@ -18,6 +18,7 @@ public class DashState : IPlayerState
     public void Enter()
     {
         _ctx.MarkDashUsed();
+        _ctx.SetAnimTrigger("Dash");
         _endTime = Time.time + _ctx.DashDuration;
 
         Vector3 inputDir = _ctx.GetCameraRelativeMoveDirection();

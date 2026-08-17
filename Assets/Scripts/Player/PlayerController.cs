@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -46,7 +47,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float dodgeCooldown = 1.5f;
 
     [Header("Attack")]
+    [Tooltip("Her combo adımının süresi (saniye). Bu süre içinde tekrar basılırsa sonraki adım kuyruğa alınır.")]
     [SerializeField] private float attackDuration = 0.5f;
+    [Tooltip("Combo adımlarının animasyon trigger adları; dizi sırası = combo adımı. Uzunluğu combo adım sayısını belirler.")]
+    [SerializeField] private string[] attackTriggers = { "Attack1", "Attack2", "Attack3" };
 
     // --- Ayarlara okuma erişimi (state'ler için) ---
     public Rigidbody Rb => rb;
@@ -62,8 +66,20 @@ public class PlayerController : MonoBehaviour
     public float DodgeDuration => dodgeDuration;
     public float AttackDuration => attackDuration;
 
+    /// <summary>Combo'daki toplam adım sayısı (attackTriggers dizisinin uzunluğu).</summary>
+    public int MaxComboStep => attackTriggers != null ? attackTriggers.Length : 0;
+
     // --- i-frame; başka sistemler (ör. hasar) okuyabilir ---
     public bool IsInvincible { get; set; }
+
+    // --- Animation Event köprüsü (PlayerAnimationEvents bunları tetikler) ---
+    /// <summary>Saldırı animasyonunun bitiş frame'inde tetiklenir; combo bu event'le ilerler.</summary>
+    public event Action AttackStepEnded;
+    /// <summary>Saldırı animasyonunun vuruş frame'inde tetiklenir; hasar bu anda uygulanır.</summary>
+    public event Action AttackHit;
+
+    public void NotifyAttackStepEnd() => AttackStepEnded?.Invoke();
+    public void NotifyAttackHit() => AttackHit?.Invoke();
 
     // --- Hazır state örnekleri (her geçişte yeniden new'lememek için) ---
     public LocomotionState Locomotion { get; private set; }
@@ -80,11 +96,29 @@ public class PlayerController : MonoBehaviour
     // Animator hız parametresinin hash'i (string yerine performans için).
     private int _speedHash;
 
+    // Combo trigger'larının önceden hesaplanmış hash'leri (adım sırasıyla).
+    private int[] _attackTriggerHashes;
+
+    // Hava (düşme/iniş) parametreleri; controller'da yoksa besleme atlanır.
+    private int _groundedHash;
+    private int _verticalSpeedHash;
+    private bool _hasAirParams;
+
     private void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (animator == null) animator = GetComponent<Animator>();
         _speedHash = Animator.StringToHash(speedParameter);
+
+        // Combo trigger adlarını bir kez hash'le.
+        _attackTriggerHashes = new int[attackTriggers.Length];
+        for (int i = 0; i < attackTriggers.Length; i++)
+            _attackTriggerHashes[i] = Animator.StringToHash(attackTriggers[i]);
+
+        // Hava parametreleri: controller'da tanımlıysa besle.
+        _groundedHash = Animator.StringToHash("IsGrounded");
+        _verticalSpeedHash = Animator.StringToHash("VerticalSpeed");
+        _hasAirParams = HasParameter(_groundedHash) && HasParameter(_verticalSpeedHash);
 
         Locomotion = new LocomotionState(this);
         Dash = new DashState(this);
@@ -101,6 +135,18 @@ public class PlayerController : MonoBehaviour
     {
         _current?.Tick();
         UpdateLocomotionAnimation();
+        UpdateAirAnimation();
+    }
+
+    /// <summary>
+    /// Düşme/iniş geçişlerini besler: zemin durumu ve dikey hız Animator'a yazılır.
+    /// Animator bunlarla JumpStart-&gt;Falling-&gt;Land ve ledge'den düşme geçişlerini yapar.
+    /// </summary>
+    private void UpdateAirAnimation()
+    {
+        if (animator == null || !_hasAirParams) return;
+        animator.SetBool(_groundedHash, IsGrounded());
+        animator.SetFloat(_verticalSpeedHash, rb.linearVelocity.y);
     }
 
     /// <summary>
@@ -152,6 +198,43 @@ public class PlayerController : MonoBehaviour
     public bool IsGrounded()
     {
         return Physics.CheckSphere(groundCheck.position, groundCheckRadius, groundLayer, QueryTriggerInteraction.Ignore);
+    }
+
+    /// <summary>
+    /// Verilen combo adımının (1 tabanlı) animasyon trigger'ını ateşler.
+    /// Adım aralık dışındaysa veya animator yoksa sessizce hiçbir şey yapmaz.
+    /// </summary>
+    public void TriggerAttack(int step)
+    {
+        if (animator == null) return;
+        int index = step - 1;
+        if (index < 0 || index >= _attackTriggerHashes.Length) return;
+        animator.SetTrigger(_attackTriggerHashes[index]);
+    }
+
+    /// <summary>Adı verilen Animator trigger'ını ateşler (Dash/Dodge/Jump gibi tek seferlik geçişler).</summary>
+    public void SetAnimTrigger(string triggerName)
+    {
+        if (animator != null) animator.SetTrigger(triggerName);
+    }
+
+    /// <summary>
+    /// Oyuncu hasar aldığında çağrılır (ör. düşman saldırısı): Hit animasyonunu oynatır.
+    /// Dodge i-frame'i sırasında hasar yok sayılır. Can/ölüm sistemi buraya eklenebilir.
+    /// </summary>
+    public void TakeHit()
+    {
+        if (IsInvincible) return;
+        SetAnimTrigger("Hit");
+    }
+
+    /// <summary>Controller'da verilen hash'e sahip bir parametre var mı?</summary>
+    private bool HasParameter(int nameHash)
+    {
+        if (animator == null) return false;
+        foreach (var p in animator.parameters)
+            if (p.nameHash == nameHash) return true;
+        return false;
     }
 
     // --- Cooldown API'si ---

@@ -32,6 +32,7 @@ public class EnemyFollow : MonoBehaviour
     [SerializeField] private float knockbackUpward = 2f;
 
     private Rigidbody _targetRb;
+    private PlayerController _targetController;
     private float _lastAttackTime = Mathf.NegativeInfinity;
 
     private void Start()
@@ -43,8 +44,12 @@ public class EnemyFollow : MonoBehaviour
             if (player != null) target = player.transform;
         }
 
-        // Knockback için hedefin Rigidbody'sini önbelleğe al.
-        if (target != null) _targetRb = target.GetComponent<Rigidbody>();
+        // Knockback ve hit için hedefin bileşenlerini önbelleğe al.
+        if (target != null)
+        {
+            _targetRb = target.GetComponent<Rigidbody>();
+            _targetController = target.GetComponent<PlayerController>();
+        }
     }
 
     private void Update()
@@ -82,6 +87,10 @@ public class EnemyFollow : MonoBehaviour
     private void Attack(Vector3 horizontalDir)
     {
         _lastAttackTime = Time.time;
+
+        // Hit animasyonu (dodge i-frame'inde TakeHit içinde yok sayılır).
+        if (_targetController != null) _targetController.TakeHit();
+
         if (_targetRb == null) return;
 
         // Yatay itme + isteğe bağlı yukarı bileşen.

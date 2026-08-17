@@ -15,6 +15,14 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform cameraPivot;
     [Tooltip("Zemin kontrolünün yapıldığı child transform (ayak hizası).")]
     [SerializeField] private Transform groundCheck;
+    [Tooltip("Locomotion animasyonlarını süren Animator. Boşsa aynı GameObject'ten alınır.")]
+    [SerializeField] private Animator animator;
+
+    [Header("Animasyon")]
+    [Tooltip("Animator'daki hız parametresinin adı (Idle<->Walk geçişi bununla yapılır).")]
+    [SerializeField] private string speedParameter = "Speed";
+    [Tooltip("Hız değerinin yumuşatma süresi; küçük değer = daha keskin geçiş.")]
+    [SerializeField] private float speedDampTime = 0.1f;
 
     [Header("Hareket")]
     [SerializeField] private float moveSpeed = 6f;
@@ -69,9 +77,14 @@ public class PlayerController : MonoBehaviour
     private float _lastDashTime = Mathf.NegativeInfinity;
     private float _lastDodgeTime = Mathf.NegativeInfinity;
 
+    // Animator hız parametresinin hash'i (string yerine performans için).
+    private int _speedHash;
+
     private void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody>();
+        if (animator == null) animator = GetComponent<Animator>();
+        _speedHash = Animator.StringToHash(speedParameter);
 
         Locomotion = new LocomotionState(this);
         Dash = new DashState(this);
@@ -87,6 +100,20 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         _current?.Tick();
+        UpdateLocomotionAnimation();
+    }
+
+    /// <summary>
+    /// Idle&lt;-&gt;Walk geçişini besler: input'un büyüklüğünü (0..1) Animator'daki
+    /// Speed parametresine yumuşatarak yazar. Fizikten bağımsız olduğu için tüm
+    /// state'lerde tutarlı çalışır ve MovePosition'a takılmaz.
+    /// </summary>
+    private void UpdateLocomotionAnimation()
+    {
+        if (animator == null) return;
+
+        float target = inputReader != null ? Mathf.Clamp01(inputReader.Move.magnitude) : 0f;
+        animator.SetFloat(_speedHash, target, speedDampTime, Time.deltaTime);
     }
 
     private void FixedUpdate()

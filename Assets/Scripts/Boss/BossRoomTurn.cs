@@ -28,14 +28,26 @@ public class BossRoomTurn : MonoBehaviour
     [SerializeField] private float scareDuration = 1.5f;
 
     [Header("Scare objesi")]
-    [Tooltip("Scare anında aktifleşecek obje (fırlayan heykel, yüz, gölge vb.). Sahnede kapalı bıraktığın obje.")]
+    [Tooltip("Scare anında aktifleşecek obje (boss, fırlayan heykel, yüz, gölge vb.).")]
     [SerializeField] private GameObject scareObject;
-    [Tooltip("Scare objesinin Animator'ı (opsiyonel).")]
-    [SerializeField] private Animator scareAnimator;
-    [Tooltip("Animator'da tetiklenecek trigger adı.")]
-    [SerializeField] private string scareTrigger = "Scare";
-    [Tooltip("Açıksa scare bitince obje tekrar kapatılır.")]
+    [Tooltip("Açıksa scare objesi oyun başında kapatılır. Boss sahnede zaten duruyorsa KAPAT.")]
+    [SerializeField] private bool startHidden = true;
+    [Tooltip("Açıksa scare bitince obje tekrar kapatılır. Boss savaşa devam edecekse KAPAT.")]
     [SerializeField] private bool hideScareObjectAfter = true;
+
+    [Header("Scare animasyonu")]
+    [Tooltip("Oynatılacak Animator (boss'un Animator'ı). Boşsa scareObject üzerinde aranır.")]
+    [SerializeField] private Animator scareAnimator;
+    [Tooltip("Animator Controller'daki trigger parametresinin adı (birebir aynı yazılmalı).")]
+    [SerializeField] private string scareTrigger = "Scare";
+    [Tooltip("Animasyonun bulunduğu Animator layer'ı (genelde 0).")]
+    [SerializeField] private int scareLayer = 0;
+    [Tooltip("Açıksa kamera kilidi scareDuration yerine animasyon bitene kadar sürer.")]
+    [SerializeField] private bool holdUntilAnimationEnds = false;
+    [Tooltip("Beklenecek state'in Animator'daki adı (ör. BossScream). Boşsa trigger sonrası girilen state kullanılır.")]
+    [SerializeField] private string scareStateName = "";
+    [Tooltip("Animasyon beklerken güvenlik sınırı; bu süre dolarsa kamera yine de serbest bırakılır.")]
+    [SerializeField] private float animationTimeout = 8f;
 
     [Header("Oyuncu kilidi")]
     [Tooltip("Açıksa scare boyunca oyuncunun kontrolü kapanır (kaçamaz, izlemek zorunda).")]
@@ -44,8 +56,10 @@ public class BossRoomTurn : MonoBehaviour
     [SerializeField] private float freezeDuration = 0f;
 
     [Header("Kamera")]
-    [Tooltip("Açıksa scare boyunca kamera zorla scare objesine bakar (PlayerLook geçici kapatılır).")]
+    [Tooltip("Açıksa scare boyunca kamera zorla hedefe bakar (PlayerLook geçici kapatılır).")]
     [SerializeField] private bool forceLookAtScare = true;
+    [Tooltip("Kameranın kilitleneceği transform. Boşsa scareObject kullanılır. Boss'un kafa/göğüs bone'unu atarsan kamera yüzünü çerçeveler.")]
+    [SerializeField] private Transform lookTarget;
     [Tooltip("PlayerLook'un döndürdüğü kamera pivotu. Boşsa PlayerLook'tan otomatik alınır.")]
     [SerializeField] private Transform cameraPivot;
     [Tooltip("Scare boyunca devre dışı bırakılacak PlayerLook. Boşsa sahnede aranır.")]
@@ -59,6 +73,12 @@ public class BossRoomTurn : MonoBehaviour
     [SerializeField] private float shakeDuration = 0.4f;
     [Tooltip("Sarsıntı şiddeti (birim). 0 = sarsıntı yok.")]
     [SerializeField] private float shakeStrength = 0.25f;
+
+    [Header("Dövüş")]
+    [Tooltip("Scare bitince başlatılacak boss dövüşü. Boşsa scareObject üzerinde aranır.")]
+    [SerializeField] private BossFight bossFight;
+    [Tooltip("Açıksa scare biter bitmez dövüş başlar. Kapalıysa dövüşü sen tetiklersin.")]
+    [SerializeField] private bool startFightAfterScare = true;
 
     [Header("Heykeller")]
     [Tooltip("Scare anında hep birlikte oyuncuya dönecek heykeller. Odadaki StatueWatcher'ları buraya sürükle.")]
@@ -89,6 +109,7 @@ public class BossRoomTurn : MonoBehaviour
     private Vector3 _pivotFollowOffset;
     private bool _hasTriggered;
     private bool _isPlaying;
+    private bool _animationFinished;
 
     /// <summary>Jump scare daha önce tetiklendi mi? (Boss akışı okuyabilir.)</summary>
     public bool HasTriggered => _hasTriggered;
@@ -100,8 +121,16 @@ public class BossRoomTurn : MonoBehaviour
         if (col != null && !col.isTrigger)
             Debug.LogWarning($"{name}: BossRoomTurn collider'ı 'Is Trigger' olmalı.", this);
 
-        // Scare objesi sahnede açık unutulmuşsa kapat.
-        if (scareObject != null) scareObject.SetActive(false);
+        // Scare objesi başta gizlenecekse kapat (boss sahnede duracaksa startHidden'ı kapat).
+        if (startHidden && scareObject != null) scareObject.SetActive(false);
+
+        // Animator elle atanmadıysa scare objesinden al (child'lar dahil).
+        if (scareAnimator == null && scareObject != null)
+            scareAnimator = scareObject.GetComponentInChildren<Animator>(true);
+
+        // Dövüş script'i elle atanmadıysa scare objesinden al.
+        if (bossFight == null && scareObject != null)
+            bossFight = scareObject.GetComponentInChildren<BossFight>(true);
 
         if (audioSource == null)
         {
@@ -144,6 +173,7 @@ public class BossRoomTurn : MonoBehaviour
         if (delayBeforeScare > 0f) yield return new WaitForSeconds(delayBeforeScare);
 
         // --- Patlama anı ---
+        // Önce objeyi aç: kapalı bir GameObject'in Animator'ına trigger yazmak işe yaramaz.
         if (scareObject != null) scareObject.SetActive(true);
         if (scareAnimator != null && !string.IsNullOrEmpty(scareTrigger))
             scareAnimator.SetTrigger(scareTrigger);
@@ -174,14 +204,24 @@ public class BossRoomTurn : MonoBehaviour
                 _pivotFollowOffset = cameraPivot.position - _playerTransform.position;
         }
 
-        // --- Scare süresi: gerekiyorsa kamerayı zorla scare'e çevir ---
-        float lockTime = freezeDuration > 0f ? freezeDuration : scareDuration;
-        float elapsed = 0f;
-        Transform lookTarget = scareObject != null ? scareObject.transform : transform;
+        // --- Scare süresi: gerekiyorsa kamerayı zorla hedefe çevir ---
+        // Kamera hedefi: elle atanan lookTarget > scare objesi > bu obje.
+        Transform focus = lookTarget != null ? lookTarget
+                        : (scareObject != null ? scareObject.transform : transform);
 
-        while (elapsed < scareDuration)
+        // Animasyonu bekleyeceksek bitişi ayrı bir coroutine belirler.
+        bool waitForAnimation = holdUntilAnimationEnds && scareAnimator != null;
+        _animationFinished = false;
+        if (waitForAnimation) StartCoroutine(WaitForScareAnimation());
+
+        // Animasyon beklenirken kilit süresi de animasyona uyar (freezeDuration verilmedikçe).
+        float lockTime = freezeDuration > 0f ? freezeDuration
+                       : (waitForAnimation ? Mathf.Infinity : scareDuration);
+        float elapsed = 0f;
+
+        while (true)
         {
-            if (cameraTaken) ForceLook(lookTarget);
+            if (cameraTaken) ForceLook(focus);
 
             elapsed += Time.deltaTime;
             // Kilit süresi scare'den kısaysa kontrolü erken geri ver.
@@ -190,6 +230,10 @@ public class BossRoomTurn : MonoBehaviour
                 LockPlayer(false);
                 frozen = false;
             }
+
+            bool finished = waitForAnimation ? _animationFinished : elapsed >= scareDuration;
+            if (finished) break;
+
             yield return null;
         }
 
@@ -209,7 +253,43 @@ public class BossRoomTurn : MonoBehaviour
         PlaySfx(aftermathClip);
         onScareEnd?.Invoke();
 
+        // Scare bitti: boss artık oyuncuyu kovalayabilir.
+        if (startFightAfterScare && bossFight != null) bossFight.BeginFight();
+
         _isPlaying = false;
+    }
+
+    /// <summary>
+    /// Scare animasyonunun state'e girip bitmesini bekler; bitince _animationFinished'i
+    /// işaretler. Loop'a giren ya da hiç tetiklenmeyen animasyonlarda animationTimeout
+    /// devreye girer, böylece oyuncu kamerada asılı kalmaz.
+    /// </summary>
+    private IEnumerator WaitForScareAnimation()
+    {
+        float deadline = Time.time + animationTimeout;
+        bool checkName = !string.IsNullOrEmpty(scareStateName);
+
+        // 1) Trigger'dan sonra state'e geçiş birkaç frame sürebilir; girişi bekle.
+        while (Time.time < deadline)
+        {
+            if (!scareAnimator.IsInTransition(scareLayer))
+            {
+                AnimatorStateInfo info = scareAnimator.GetCurrentAnimatorStateInfo(scareLayer);
+                if (!checkName || info.IsName(scareStateName)) break;
+            }
+            yield return null;
+        }
+
+        // 2) State'in sonunu (normalizedTime >= 1) ya da başka state'e çıkışı bekle.
+        while (Time.time < deadline)
+        {
+            AnimatorStateInfo info = scareAnimator.GetCurrentAnimatorStateInfo(scareLayer);
+            if (checkName && !info.IsName(scareStateName)) break;
+            if (!scareAnimator.IsInTransition(scareLayer) && info.normalizedTime >= 1f) break;
+            yield return null;
+        }
+
+        _animationFinished = true;
     }
 
     /// <summary>Oyuncu hareket/saldırı kontrolünü açar-kapatır (kamera ayrı yönetilir).</summary>

@@ -30,9 +30,11 @@ public class EnemyFollow : MonoBehaviour
     [SerializeField] private float knockbackForce = 8f;
     [Tooltip("İtmeye eklenen yukarı yön bileşeni (0 = düz itme).")]
     [SerializeField] private float knockbackUpward = 2f;
+    [Tooltip("Her saldırıda verilecek hasar.")]
+    [SerializeField] private float damage = 15f;
 
     private Rigidbody _targetRb;
-    private PlayerController _targetController;
+    private PlayerHealth _targetHealth;
     private float _lastAttackTime = Mathf.NegativeInfinity;
 
     private void Start()
@@ -44,11 +46,11 @@ public class EnemyFollow : MonoBehaviour
             if (player != null) target = player.transform;
         }
 
-        // Knockback ve hit için hedefin bileşenlerini önbelleğe al.
+        // Knockback ve hasar için hedefin bileşenlerini önbelleğe al.
         if (target != null)
         {
             _targetRb = target.GetComponent<Rigidbody>();
-            _targetController = target.GetComponent<PlayerController>();
+            _targetHealth = target.GetComponent<PlayerHealth>();
         }
     }
 
@@ -88,8 +90,8 @@ public class EnemyFollow : MonoBehaviour
     {
         _lastAttackTime = Time.time;
 
-        // Hit animasyonu (dodge i-frame'inde TakeHit içinde yok sayılır).
-        if (_targetController != null) _targetController.TakeHit();
+        // Hasar ver (hit animasyonu ve dodge i-frame kontrolü PlayerHealth içinde).
+        if (_targetHealth != null) _targetHealth.TakeDamage(damage);
 
         if (_targetRb == null) return;
 

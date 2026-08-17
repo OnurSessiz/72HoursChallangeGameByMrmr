@@ -243,6 +243,12 @@ public class PlayerController : MonoBehaviour
     public void MarkDashUsed() => _lastDashTime = Time.time;
     public void MarkDodgeUsed() => _lastDodgeTime = Time.time;
 
+    // --- Cooldown UI için okuma erişimi ---
+    public float DashCooldown => dashCooldown;
+    public float DodgeCooldown => dodgeCooldown;
+    public float DashCooldownRemaining => Mathf.Max(0f, (_lastDashTime + dashCooldown) - Time.time);
+    public float DodgeCooldownRemaining => Mathf.Max(0f, (_lastDodgeTime + dodgeCooldown) - Time.time);
+
     private void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;

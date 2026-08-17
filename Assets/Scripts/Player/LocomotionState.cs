@@ -63,6 +63,8 @@ public class LocomotionState : IPlayerState
         {
             _ctx.SetAnimTrigger("Jump");
             _ctx.Rb.AddForce(Vector3.up * _ctx.JumpForce, ForceMode.Impulse);
+            // Hemen ardından gelen saldırı "jump + attack" sayılsın (uçan tekme).
+            _ctx.MarkJumpUsed();
         }
     }
 
@@ -74,6 +76,18 @@ public class LocomotionState : IPlayerState
 
     private void OnAttack()
     {
+        // Havadaysa (ya da daha yeni zıpladıysa) yerdeki combo yerine uçan tekme.
+        bool airborne = !_ctx.IsGrounded() || _ctx.JustJumped;
+
+        if (airborne)
+        {
+            // Tekme hakkı bir hava süresinde bir kez; hakkı yoksa hiçbir şey yapma
+            // (yerdeki combo'yu havada oynatmak animasyonu bozar).
+            if (_ctx.CanAirAttack)
+                _ctx.ChangeState(_ctx.AirAttack);
+            return;
+        }
+
         _ctx.ChangeState(_ctx.Attack);
     }
 

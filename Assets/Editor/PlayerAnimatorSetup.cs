@@ -12,11 +12,14 @@ using UnityEngine;
 ///   Jump / Fall / Land  : Any State -(Jump)-> JumpStart -(VerticalSpeed<0)-> Falling
 ///                         Falling -(IsGrounded)-> Land -> Idle;  Idle/Walk -(!IsGrounded)-> Falling
 ///   Hit                 : Any State -(Hit)-> Hit -> Idle (exit time)
+///   Kick1 (ucan tekme)  : Any State -(Kick1)-> Kick1 -> Idle (exit time)
 /// </summary>
 public static class PlayerAnimatorSetup
 {
     private const string ControllerPath = "Assets/Animations/PlayerLocomotion.controller";
     private const string FbxPath = "Assets/Models/temelkarakter14.fbx";
+    // Uçan tekme klibi ayrı bir FBX'te (metarig|Kick1).
+    private const string KickFbxPath = "Assets/Models/ıwinL.fbx";
 
     [MenuItem("Tools/Player/Bind Movement Animations")]
     public static void Bind()
@@ -70,6 +73,15 @@ public static class PlayerAnimatorSetup
                 EnsureTrans(walk, falling, false, 0f, ("IsGrounded", AnimatorConditionMode.IfNot, 0f));
         }
 
+        // --- Kick1 (uçan tekme): havada saldırıda her yerden kesip oynar, bitince Idle'a ---
+        EnsureParam(controller, "Kick1", AnimatorControllerParameterType.Trigger);
+        var kick = EnsureState(sm, "Kick1", "metarig|Kick1", KickFbxPath);
+        if (kick != null)
+        {
+            EnsureAnyState(sm, kick, ("Kick1", AnimatorConditionMode.If, 0f));
+            EnsureTrans(kick, idle, true, 0.85f);
+        }
+
         // --- Hit: her yerden kesip oynatır, bitince Idle'a ---
         var hit = EnsureState(sm, "Hit", "metarig|CatHit");
         if (hit != null)
@@ -80,7 +92,7 @@ public static class PlayerAnimatorSetup
 
         EditorUtility.SetDirty(controller);
         AssetDatabase.SaveAssets();
-        Debug.Log("Player animasyonlari baglandi (Dash/Dodge/Jump/Fall/Land/Hit).");
+        Debug.Log("Player animasyonlari baglandi (Dash/Dodge/Jump/Fall/Land/Hit/Kick1).");
     }
 
     // --- Yardimcilar ---
@@ -101,13 +113,14 @@ public static class PlayerAnimatorSetup
         c.AddParameter(name, type);
     }
 
-    private static AnimatorState EnsureState(AnimatorStateMachine sm, string name, string clipName)
+    private static AnimatorState EnsureState(AnimatorStateMachine sm, string name, string clipName,
+        string fbxPath = FbxPath)
     {
         var existing = FindState(sm, name);
         if (existing != null) return existing;
 
-        var clip = LoadClip(clipName);
-        if (clip == null) { Debug.LogWarning($"Klip bulunamadi: {clipName} ({FbxPath})"); return null; }
+        var clip = LoadClip(clipName, fbxPath);
+        if (clip == null) { Debug.LogWarning($"Klip bulunamadi: {clipName} ({fbxPath})"); return null; }
 
         var state = sm.AddState(name);
         state.motion = clip;
@@ -156,9 +169,9 @@ public static class PlayerAnimatorSetup
         return null;
     }
 
-    private static AnimationClip LoadClip(string clipName)
+    private static AnimationClip LoadClip(string clipName, string fbxPath = FbxPath)
     {
-        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(FbxPath))
+        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(fbxPath))
             if (o is AnimationClip c && c.name == clipName) return c;
         return null;
     }

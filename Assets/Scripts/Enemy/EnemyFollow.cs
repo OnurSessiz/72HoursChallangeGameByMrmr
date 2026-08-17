@@ -57,6 +57,8 @@ public class EnemyFollow : MonoBehaviour
     private void Update()
     {
         if (target == null) return;
+        // Oyuncu öldüyse kovalamayı ve saldırmayı bırak.
+        if (_targetHealth != null && _targetHealth.IsDead) return;
 
         // Yatay düzlemde mesafe (yükseklik farkını yok say).
         Vector3 toTarget = target.position - transform.position;

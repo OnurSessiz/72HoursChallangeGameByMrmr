@@ -80,6 +80,18 @@ public class BossRoomTurn : MonoBehaviour
     [Tooltip("Açıksa scare biter bitmez dövüş başlar. Kapalıysa dövüşü sen tetiklersin.")]
     [SerializeField] private bool startFightAfterScare = true;
 
+    [Header("Sinematik kamera (opsiyonel)")]
+    [Tooltip("Scare anında geçilecek ikinci kamera. Boss'un önüne, yüzünü çerçeveleyecek şekilde yerleştir. Boşsa kesme yapılmaz, eski davranış sürer.")]
+    [SerializeField] private Camera cutsceneCamera;
+    [Tooltip("Scare patladıktan kaç saniye sonra sinematik kameraya kesilsin. 0 = aynı anda.")]
+    [SerializeField] private float cutInDelay = 0f;
+    [Tooltip("Sinematik kamerada kalınacak süre. 0 veya daha küçükse scare bitene kadar kalır.")]
+    [SerializeField] private float cutDuration = 0f;
+    [Tooltip("Açıksa sinematik kamera oyun başında kapatılır (sahnede açık unutulsa bile).")]
+    [SerializeField] private bool disableCutsceneCameraOnStart = true;
+    [Tooltip("Oyuncunun normal kamerası. Boşsa Start'ta Camera.main'den alınır.")]
+    [SerializeField] private Camera playerCamera;
+
     [Header("Heykeller")]
     [Tooltip("Scare anında hep birlikte oyuncuya dönecek heykeller. Odadaki StatueWatcher'ları buraya sürükle.")]
     [SerializeField] private StatueWatcher[] statuesToAlert;
@@ -107,6 +119,7 @@ public class BossRoomTurn : MonoBehaviour
     private Transform _playerTransform;
     // Zorla bakış sırasında PlayerLook kapalı olduğu için pivotun takip ofsetini kendimiz koruruz.
     private Vector3 _pivotFollowOffset;
+    private bool _cutsceneActive;
     private bool _hasTriggered;
     private bool _isPlaying;
     private bool _animationFinished;
@@ -145,6 +158,27 @@ public class BossRoomTurn : MonoBehaviour
         if (playerLook == null) playerLook = FindAnyObjectByType<PlayerLook>();
         if (cameraPivot == null && playerLook != null) cameraPivot = playerLook.CameraPivot;
         if (shakeTransform == null && Camera.main != null) shakeTransform = Camera.main.transform;
+
+        // Oyuncu kamerasını kesmeden ÖNCE çözümle: kesme sırasında oyuncunun kamerası
+        // kapandığı için Camera.main null'a düşer.
+        if (playerCamera == null) playerCamera = Camera.main;
+
+        if (cutsceneCamera != null)
+        {
+            // İki AudioListener açık kalırsa Unity uyarır ve ses bozulur; sinematik
+            // kameranınkini kapatıp sesi oyuncunun kamerasında bırakıyoruz.
+            var cutsceneListener = cutsceneCamera.GetComponent<AudioListener>();
+            if (cutsceneListener != null) cutsceneListener.enabled = false;
+
+            if (cutsceneCamera.CompareTag("MainCamera"))
+                Debug.LogWarning($"{name}: Sinematik kamera 'MainCamera' tag'li. Camera.main'i çalar; tag'ini Untagged yap.", this);
+
+            if (disableCutsceneCameraOnStart)
+            {
+                cutsceneCamera.enabled = false;
+                cutsceneCamera.gameObject.SetActive(false);
+            }
+        }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -191,7 +225,14 @@ public class BossRoomTurn : MonoBehaviour
         onScareTriggered?.Invoke();
 
         bool frozen = freezePlayer && LockPlayer(true);
-        if (shakeStrength > 0f && shakeTransform != null) StartCoroutine(ShakeRoutine());
+
+        // Sarsıntı EKRANDA OLAN kameraya uygulanmalı. Kesme bu anda yapılıyorsa
+        // sinematik kamerayı, gecikmeliyse oyuncunun kamerasını sars.
+        bool cutsAtOnce = cutsceneCamera != null && cutInDelay <= 0f;
+        Transform shakeTarget = cutsAtOnce ? cutsceneCamera.transform : shakeTransform;
+        if (shakeStrength > 0f && shakeTarget != null) StartCoroutine(ShakeRoutine(shakeTarget));
+
+        if (cutsceneCamera != null) StartCoroutine(CutsceneRoutine());
 
         // Kamerayı devral: PlayerLook her LateUpdate'te rotasyonu mutlak yazdığı için
         // zorla bakış ancak o kapalıyken çalışır (oyuncu kilidinden bağımsız).
@@ -239,6 +280,10 @@ public class BossRoomTurn : MonoBehaviour
 
         // --- Toparlanma ---
         if (frozen) LockPlayer(false);
+
+        // Hâlâ sinematik kameradaysak önce oyuncunun kamerasına dön; PlayerLook
+        // açılmadan önce ekranın doğru kamerada olması gerekiyor.
+        SetCutsceneCamera(false);
 
         if (cameraTaken && playerLook != null)
         {
@@ -319,23 +364,66 @@ public class BossRoomTurn : MonoBehaviour
             cameraPivot.rotation, desired, forceLookSpeed * Time.deltaTime);
     }
 
-    /// <summary>Kamerayı localPosition offset'iyle sarsar, sonra eski yerine koyar.</summary>
-    private IEnumerator ShakeRoutine()
+    /// <summary>Verilen kamerayı localPosition offset'iyle sarsar, sonra eski yerine koyar.</summary>
+    private IEnumerator ShakeRoutine(Transform shakeTarget)
     {
-        Vector3 original = shakeTransform.localPosition;
+        Vector3 original = shakeTarget.localPosition;
         float elapsed = 0f;
 
         while (elapsed < shakeDuration)
         {
             // Şiddet zamanla sönümlensin.
             float damper = 1f - (elapsed / shakeDuration);
-            shakeTransform.localPosition = original + Random.insideUnitSphere * (shakeStrength * damper);
+            shakeTarget.localPosition = original + Random.insideUnitSphere * (shakeStrength * damper);
 
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        shakeTransform.localPosition = original;
+        shakeTarget.localPosition = original;
+    }
+
+    /// <summary>
+    /// Sinematik kamera akışı: cutInDelay sonra boss'un önündeki kameraya keser ve
+    /// cutDuration kadar orada kalır. cutDuration 0 ise scare bitene kadar kalır;
+    /// geri dönüşü ScareRoutine'in toparlanma adımı yapar.
+    /// </summary>
+    private IEnumerator CutsceneRoutine()
+    {
+        if (cutInDelay > 0f) yield return new WaitForSeconds(cutInDelay);
+
+        SetCutsceneCamera(true);
+
+        if (cutDuration > 0f)
+        {
+            yield return new WaitForSeconds(cutDuration);
+            SetCutsceneCamera(false);
+        }
+    }
+
+    /// <summary>
+    /// Oyuncunun kamerası ile sinematik kamera arasında geçiş yapar. Aynı anda tek
+    /// kamera render eder; AudioListener oyuncunun kamerasında kalır.
+    /// </summary>
+    private void SetCutsceneCamera(bool active)
+    {
+        if (cutsceneCamera == null || _cutsceneActive == active) return;
+        _cutsceneActive = active;
+
+        if (active)
+        {
+            cutsceneCamera.gameObject.SetActive(true);
+            cutsceneCamera.enabled = true;
+            // İki kamera aynı anda render ederse depth sırasına göre biri diğerinin
+            // üstüne çizilir; oyuncununkini kapatıyoruz.
+            if (playerCamera != null) playerCamera.enabled = false;
+        }
+        else
+        {
+            if (playerCamera != null) playerCamera.enabled = true;
+            cutsceneCamera.enabled = false;
+            cutsceneCamera.gameObject.SetActive(false);
+        }
     }
 
     private void PlaySfx(AudioClip clip)

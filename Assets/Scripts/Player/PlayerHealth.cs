@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 /// UI/ses için HealthChanged ve Died event'leri sunulur.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
-public class PlayerHealth : MonoBehaviour
+public class PlayerHealth : MonoBehaviour, IDamageable
 {
     [Header("Can")]
     [SerializeField] private float maxHealth = 100f;
@@ -60,6 +60,12 @@ public class PlayerHealth : MonoBehaviour
         else if (_controller != null)
             _controller.TakeHit();   // hit animasyonu
     }
+
+    /// <summary>
+    /// IDamageable girişi: oyuncu da düşmanlarla aynı hasar sözleşmesini kullanır.
+    /// Knockback'i oyuncuda düşman AI'ları kendi uyguladığı için burada yalnızca hasar işlenir.
+    /// </summary>
+    public void TakeDamage(DamageInfo info) => TakeDamage(info.Amount);
 
     /// <summary>Ani ölüm (lava vb.); dokunulmazlığı yok sayar.</summary>
     public void Kill()

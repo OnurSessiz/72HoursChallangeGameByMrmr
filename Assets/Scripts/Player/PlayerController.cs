@@ -77,6 +77,12 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Zıpladıktan sonra bu süre içinde saldırıya basılırsa (ayak hâlâ yerdeyken) yine uçan tekme atılır.")]
     [SerializeField] private float jumpAttackGrace = 0.25f;
 
+    [Header("Savrulma (knockback)")]
+    [Tooltip("Savrulurken 'yere indi' sayılması için geçmesi gereken en kısa süre (ayak yerden kalksın).")]
+    [SerializeField] private float launchMinAirTime = 0.15f;
+    [Tooltip("Savrulmanın güvenlik üst sınırı; bir yere sıkışırsa oyuncu kilitli kalmasın.")]
+    [SerializeField] private float launchMaxDuration = 3f;
+
     // --- Ayarlara okuma erişimi (state'ler için) ---
     public Rigidbody Rb => rb;
     public PlayerInputReader Input => inputReader;
@@ -97,6 +103,10 @@ public class PlayerController : MonoBehaviour
     public float KickMaxDuration => kickMaxDuration;
     public float KickMinAirTime => kickMinAirTime;
     public float KickSpeedFalloff => kickSpeedFalloff;
+
+    // --- Savrulma ayarları (LaunchedState okur) ---
+    public float LaunchMinAirTime => launchMinAirTime;
+    public float LaunchMaxDuration => launchMaxDuration;
 
     /// <summary>Combo'daki toplam adım sayısı (attackTriggers dizisinin uzunluğu).</summary>
     public int MaxComboStep => attackTriggers != null ? attackTriggers.Length : 0;
@@ -128,6 +138,8 @@ public class PlayerController : MonoBehaviour
     public AttackState Attack { get; private set; }
     public DodgeState Dodge { get; private set; }
     public AirAttackState AirAttack { get; private set; }
+    /// <summary>Ağır vuruşla savrulma; knockback bu state içinde yaşar.</summary>
+    public LaunchedState Launched { get; private set; }
 
     private IPlayerState _current;
 
@@ -174,6 +186,7 @@ public class PlayerController : MonoBehaviour
         Attack = new AttackState(this);
         Dodge = new DodgeState(this);
         AirAttack = new AirAttackState(this);
+        Launched = new LaunchedState(this);
     }
 
     private void Start()
@@ -327,6 +340,21 @@ public class PlayerController : MonoBehaviour
 
     /// <summary>Uçan tekme bitti; hasar penceresi kapanır.</summary>
     public void EndAirAttack() => IsAirAttack = false;
+
+    /// <summary>
+    /// Oyuncuyu verilen hızla savurur (knockback). Locomotion devre dışı kalır, uçuş
+    /// tamamen fiziğe bırakılır ve yere inince kontrol geri döner.
+    ///
+    /// Hız MUTLAK olarak yazılır (AddForce değil): kütleden bağımsız, öngörülebilir
+    /// mesafe verir; BlackSwordsman fırlatmayı metre cinsinden hesaplayabiliyor.
+    /// </summary>
+    public void Launch(Vector3 velocity)
+    {
+        if (velocity.sqrMagnitude < 0.0001f) return;
+
+        Launched.SetVelocity(velocity);
+        ChangeState(Launched);
+    }
 
     /// <summary>Zıplama anında işaretlenir; hemen ardından gelen saldırı uçan tekmeye sayılır.</summary>
     public void MarkJumpUsed() => _lastJumpTime = Time.time;

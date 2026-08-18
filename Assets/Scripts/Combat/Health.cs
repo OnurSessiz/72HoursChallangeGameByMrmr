@@ -67,6 +67,17 @@ public class Health : MonoBehaviour, IDamageable
     public bool IsDead { get; private set; }
     public float Normalized => maxHealth > 0f ? Current / maxHealth : 0f;
 
+    /// <summary>
+    /// Gelen knockback çarpanı. 0 = bu düşman hiç itilmez. Yerinden kıpırdamaması
+    /// gereken düşmanlar (ör. BlackSwordsman) bunu Awake'te 0'a çeker; böylece
+    /// uçan tekmeyle geri itilerek etkisiz hale getirilemezler.
+    /// </summary>
+    public float KnockbackMultiplier
+    {
+        get => knockbackMultiplier;
+        set => knockbackMultiplier = Mathf.Max(0f, value);
+    }
+
     /// <summary>(current, max) — can barı gibi sistemler buna abone olur.</summary>
     public event Action<float, float> HealthChanged;
     public event Action Died;

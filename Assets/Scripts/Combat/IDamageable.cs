@@ -16,14 +16,21 @@ public struct DamageInfo
     public float KnockbackForce;
     /// <summary>Hasarı veren obje (oyuncu, düşman, tuzak). Dost ateşi filtrelemede kullanılır.</summary>
     public GameObject Source;
+    /// <summary>
+    /// Sersemletme süresi (saniye). 0 = sersemletme yok. Yalnızca IStunnable uygulayan
+    /// hedefler (şu an boss) buna tepki verir; diğerleri sessizce yok sayar.
+    /// </summary>
+    public float StunDuration;
 
-    public DamageInfo(float amount, Vector3 hitPoint, Vector3 hitDirection, float knockbackForce, GameObject source)
+    public DamageInfo(float amount, Vector3 hitPoint, Vector3 hitDirection, float knockbackForce,
+        GameObject source, float stunDuration = 0f)
     {
         Amount = amount;
         HitPoint = hitPoint;
         HitDirection = hitDirection;
         KnockbackForce = knockbackForce;
         Source = source;
+        StunDuration = stunDuration;
     }
 }
 
@@ -35,4 +42,14 @@ public interface IDamageable
 {
     bool IsDead { get; }
     void TakeDamage(DamageInfo info);
+}
+
+/// <summary>
+/// Sersemletilebilen davranışların arayüzü. Health, DamageInfo.StunDuration doluysa
+/// aynı objedeki IStunnable'lara Stun() geçer; uygulamayan düşmanlar etkilenmez.
+/// </summary>
+public interface IStunnable
+{
+    /// <summary>Verilen süre boyunca sersemlet (hareket/saldırı kesilir). Üst üste gelirse süre uzar.</summary>
+    void Stun(float duration);
 }

@@ -20,6 +20,8 @@ public class Health : MonoBehaviour, IDamageable
     [SerializeField] private float maxHealth = 100f;
 
     [Header("Hasar")]
+    [Tooltip("Gelen sersemletme bu çarpanla uygulanır (0 = bu düşman sersemlemez). Etkisi için objede IStunnable bir bileşen olmalı (ör. BossFight).")]
+    [SerializeField] private float stunMultiplier = 1f;
     [Tooltip("Aynı vuruşun birden çok collider yüzünden çoklu saymasını önleyen kısa dokunulmazlık.")]
     [SerializeField] private float hitInvulnDuration = 0.1f;
     [Tooltip("Gelen knockback bu çarpanla uygulanır (0 = bu düşman hiç itilmez).")]
@@ -105,7 +107,8 @@ public class Health : MonoBehaviour, IDamageable
         }
 
         ApplyKnockback(info);
-        SetTrigger(hitTrigger);
+        // Sersemleme uygulandıysa Hit animasyonu Stun'u ezmesin.
+        if (!ApplyStun(info)) SetTrigger(hitTrigger);
     }
 
     /// <summary>Kısayol: yön/knockback olmadan sade hasar (tuzak, zehir vb.).</summary>
@@ -174,6 +177,27 @@ public class Health : MonoBehaviour, IDamageable
 
         var follow = GetComponent<EnemyFollow>();
         if (follow != null) follow.enabled = false;
+    }
+
+    /// <summary>
+    /// Sersemletmeyi objedeki IStunnable bileşenlere iletir (boss: BossFight).
+    /// Uygulayan bileşen yoksa vuruş normal hasar gibi geçer.
+    /// Dönüş: sersemletme gerçekten uygulandı mı?
+    /// </summary>
+    private bool ApplyStun(DamageInfo info)
+    {
+        if (info.StunDuration <= 0f || stunMultiplier <= 0f) return false;
+
+        float duration = info.StunDuration * stunMultiplier;
+        bool stunned = false;
+
+        foreach (var stunnable in GetComponentsInChildren<IStunnable>(true))
+        {
+            stunnable.Stun(duration);
+            stunned = true;
+        }
+
+        return stunned;
     }
 
     private void ApplyKnockback(DamageInfo info)

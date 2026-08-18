@@ -13,9 +13,14 @@ using UnityEngine.Events;
 ///   Speed   : float   -> Idle &lt;-&gt; Walk geçişi
 ///   Attack1 : trigger  \ Any State üzerinden oynar, bitince Idle'a döner
 ///   Attack2 : trigger  /
+///   Stun    : trigger -> sersemleme animasyonu (Any State üzerinden)
+///   Stunned : bool    -> sersemleme boyunca true; false olunca Idle'a döner
+///
+/// Oyuncunun uçan tekmesi boss'u sersemletir (PlayerAttack.airKick.stunDuration ->
+/// Health -> IStunnable.Stun). Sersemken boss yürümez, dönmez, saldırmaz.
 /// </summary>
 [DisallowMultipleComponent]
-public class BossFight : MonoBehaviour
+public class BossFight : MonoBehaviour, IStunnable
 {
     [Header("Hedef")]
     [Tooltip("Kovalanacak hedef. Boşsa 'Player' tag'li obje otomatik bulunur.")]
@@ -42,6 +47,8 @@ public class BossFight : MonoBehaviour
     [SerializeField] private float hitDelay = 0.45f;
     [Tooltip("Vuruş anında oyuncu bu mesafedeyse hasar alır; uzaklaştıysa ıskalar.")]
     [SerializeField] private float hitRange = 3f;
+    [Tooltip("Açıksa vuruş anı hitDelay yerine animasyondaki AttackHit event'inden gelir. Event'i olmayan clip'lerde hitDelay yedek olarak devreye girer.")]
+    [SerializeField] private bool useAnimationEventHit = false;
     [Tooltip("İki saldırı arası bekleme (saniye).")]
     [SerializeField] private float attackCooldown = 1.5f;
     [SerializeField] private float damage = 25f;
@@ -60,6 +67,22 @@ public class BossFight : MonoBehaviour
     [Tooltip("Açıksa saldırılar sırayla, kapalıysa rastgele seçilir.")]
     [SerializeField] private bool alternateAttacks = true;
 
+    [Header("Sersemleme (stun)")]
+    [Tooltip("Boss sersemletilebilir mi? Kapalıysa gelen stun yok sayılır.")]
+    [SerializeField] private bool canBeStunned = true;
+    [Tooltip("Gelen stun süresi bu çarpanla uygulanır (0.5 = yarı süre).")]
+    [SerializeField] private float stunResistance = 1f;
+    [Tooltip("Tek seferde sersemleyebileceği en uzun süre (üst üste vuruşlara karşı tavan).")]
+    [SerializeField] private float maxStunDuration = 4f;
+    [Tooltip("Sersemleme bitince ilk saldırıya kadar beklenecek ek süre.")]
+    [SerializeField] private float stunRecoveryDelay = 0.4f;
+    [Tooltip("Sersemleyince tetiklenecek trigger. Animator'da yoksa sessizce atlanır.")]
+    [SerializeField] private string stunTrigger = "Stun";
+    [Tooltip("Sersemleme boyunca true kalan bool (Stun state'i döngüde tutmak için). Boş bırakılabilir.")]
+    [SerializeField] private string stunnedParameter = "Stunned";
+    [Tooltip("Sersemleme anında çalar (kafa çınlaması, sersemleme sesi).")]
+    [SerializeField] private AudioClip stunClip;
+
     [Header("Ses (ön hazırlık, klipler sonra atanacak)")]
     [SerializeField] private AudioSource audioSource;
     [Tooltip("Dövüş başladığı anda çalar (kükreme, müzik cue'su).")]
@@ -76,6 +99,10 @@ public class BossFight : MonoBehaviour
     public UnityEvent onFightStart;
     [Tooltip("Her saldırı başlangıcında tetiklenir.")]
     public UnityEvent onAttack;
+    [Tooltip("Boss sersemlediğinde tetiklenir (UI uyarısı, efekt vb.).")]
+    public UnityEvent onStunned;
+    [Tooltip("Sersemleme bitip boss kendine geldiğinde tetiklenir.")]
+    public UnityEvent onStunEnded;
 
     private Rigidbody _targetRb;
     private PlayerHealth _targetHealth;
@@ -84,9 +111,16 @@ public class BossFight : MonoBehaviour
     private float _lastAttackTime = Mathf.NegativeInfinity;
     private int _nextAttackIndex;
     private int _speedHash;
+    private float _stunEndTime = Mathf.NegativeInfinity;
+    private Coroutine _attackRoutine;
+    private Coroutine _stunRoutine;
+    private bool _damageAppliedThisAttack;
 
     /// <summary>Dövüş başladı mı? (UI/müzik sistemleri okuyabilir.)</summary>
     public bool FightStarted => _fightStarted;
+
+    /// <summary>Boss şu an sersemlemiş mi? (Sersemken yürümez, saldırmaz, dönmez.)</summary>
+    public bool IsStunned => Time.time < _stunEndTime;
 
     private void Awake()
     {
@@ -129,7 +163,70 @@ public class BossFight : MonoBehaviour
     {
         _fightStarted = false;
         _isAttacking = false;
+        CancelAttack();
+        ClearStun();
         SetAnimatorSpeed(0f);
+    }
+
+    /// <summary>
+    /// IStunnable: boss'u verilen süre boyunca sersemletir. Devam eden saldırı kesilir,
+    /// boss yerinde donar ve Stun animasyonu oynar. Sersemken gelen yeni stun süreyi
+    /// (maxStunDuration tavanına kadar) uzatır.
+    /// </summary>
+    public void Stun(float duration)
+    {
+        if (!canBeStunned || duration <= 0f || stunResistance <= 0f) return;
+
+        float scaled = Mathf.Min(duration * stunResistance, maxStunDuration);
+        float newEnd = Time.time + scaled;
+        bool wasStunned = IsStunned;
+        if (newEnd <= _stunEndTime) return;   // daha kısa bir stun, mevcut olanı kısaltmasın
+        _stunEndTime = newEnd;
+
+        // Saldırının ortasındaysa kes: sersemleyen boss vuruşunu tamamlamasın.
+        CancelAttack();
+        SetAnimatorSpeed(0f);
+
+        SetTriggerSafe(stunTrigger);
+        SetBoolSafe(stunnedParameter, true);
+
+        if (!wasStunned)
+        {
+            PlaySfx(stunClip);
+            onStunned?.Invoke();
+        }
+
+        if (_stunRoutine != null) StopCoroutine(_stunRoutine);
+        _stunRoutine = StartCoroutine(StunRoutine());
+    }
+
+    /// <summary>Sersemleme bitene kadar bekler, sonra boss'u tekrar aktif eder.</summary>
+    private IEnumerator StunRoutine()
+    {
+        while (IsStunned) yield return null;
+
+        _stunRoutine = null;
+        SetBoolSafe(stunnedParameter, false);
+        // Sersemlemeden çıkar çıkmaz vurmasın; oyuncuya kaçma payı kalsın.
+        _lastAttackTime = Time.time - attackCooldown + stunRecoveryDelay;
+        onStunEnded?.Invoke();
+    }
+
+    /// <summary>Devam eden saldırıyı iptal eder (stun, dövüş sonu).</summary>
+    private void CancelAttack()
+    {
+        if (_attackRoutine != null) StopCoroutine(_attackRoutine);
+        _attackRoutine = null;
+        _isAttacking = false;
+    }
+
+    /// <summary>Sersemleme durumunu sıfırlar (dövüş durdurulunca).</summary>
+    private void ClearStun()
+    {
+        if (_stunRoutine != null) StopCoroutine(_stunRoutine);
+        _stunRoutine = null;
+        _stunEndTime = Mathf.NegativeInfinity;
+        SetBoolSafe(stunnedParameter, false);
     }
 
     private void Update()
@@ -139,6 +236,13 @@ public class BossFight : MonoBehaviour
         if (target == null)
         {
             TryFindTarget();
+            return;
+        }
+
+        // Sersemken kıpırdamaz: ne yürür, ne döner, ne saldırır. Bu, uçan tekmenin ödülü.
+        if (IsStunned)
+        {
+            SetAnimatorSpeed(0f);
             return;
         }
 
@@ -166,7 +270,7 @@ public class BossFight : MonoBehaviour
         // Menzildeyse ve cooldown dolduysa saldır.
         if (distance <= attackRange && Time.time >= _lastAttackTime + attackCooldown)
         {
-            StartCoroutine(AttackRoutine());
+            _attackRoutine = StartCoroutine(AttackRoutine());
             return;
         }
 
@@ -182,10 +286,32 @@ public class BossFight : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Animation Event alıcısı. Boss'un saldırı clip'leri oyuncunun FBX'inden geldiği için
+    /// içlerinde AttackHit event'i var; alıcı olmayınca Unity "has no receiver" uyarısı basar.
+    /// useAnimationEventHit açıksa vuruş tam bu frame'de uygulanır, kapalıysa event yutulur.
+    /// </summary>
+    public void AttackHit()
+    {
+        if (!useAnimationEventHit || !_isAttacking || _damageAppliedThisAttack) return;
+
+        _damageAppliedThisAttack = true;
+        TryDealDamage();
+    }
+
+    /// <summary>
+    /// Animation Event alıcısı (oyuncu clip'lerinden gelen bitiş event'i). Boss'un saldırı
+    /// süresini attackDuration yönettiği için burada bir şey yapılmaz; uyarıyı susturur.
+    /// </summary>
+    public void AttackStepEnd()
+    {
+    }
+
     /// <summary>Saldırı: trigger, vuruş penceresinde hasar, sonra toparlanma.</summary>
     private IEnumerator AttackRoutine()
     {
         _isAttacking = true;
+        _damageAppliedThisAttack = false;
         _lastAttackTime = Time.time;
 
         // Sıradaki saldırıyı seç (sırayla ya da rastgele).
@@ -202,15 +328,21 @@ public class BossFight : MonoBehaviour
         PlaySfx(attackClip);
         onAttack?.Invoke();
 
-        // Animasyondaki vuruş anını bekle.
+        // Animasyondaki vuruş anını bekle. AttackHit event'i bu süre içinde geldiyse
+        // hasar zaten uygulanmıştır; yoksa hitDelay yedek olarak çalışır.
         yield return new WaitForSeconds(hitDelay);
-        TryDealDamage();
+        if (!_damageAppliedThisAttack)
+        {
+            _damageAppliedThisAttack = true;
+            TryDealDamage();
+        }
 
         // Saldırının kalan süresi boyunca boss yerinde kalır.
         float remaining = attackDuration - hitDelay;
         if (remaining > 0f) yield return new WaitForSeconds(remaining);
 
         _isAttacking = false;
+        _attackRoutine = null;
     }
 
     /// <summary>Vuruş anında oyuncu hâlâ menzildeyse hasar + knockback uygular.</summary>
@@ -241,6 +373,30 @@ public class BossFight : MonoBehaviour
 
         Quaternion desired = Quaternion.LookRotation(toTarget.normalized, Vector3.up);
         transform.rotation = Quaternion.Slerp(transform.rotation, desired, speed * Time.deltaTime);
+    }
+
+    /// <summary>Trigger'ı yalnızca controller'da gerçekten varsa tetikler (uyarı üretmemek için).</summary>
+    private void SetTriggerSafe(string parameter)
+    {
+        if (!HasParameter(parameter, AnimatorControllerParameterType.Trigger)) return;
+        animator.SetTrigger(parameter);
+    }
+
+    /// <summary>Bool'u yalnızca controller'da gerçekten varsa yazar.</summary>
+    private void SetBoolSafe(string parameter, bool value)
+    {
+        if (!HasParameter(parameter, AnimatorControllerParameterType.Bool)) return;
+        animator.SetBool(parameter, value);
+    }
+
+    private bool HasParameter(string parameter, AnimatorControllerParameterType type)
+    {
+        if (animator == null || string.IsNullOrEmpty(parameter)) return false;
+
+        foreach (var p in animator.parameters)
+            if (p.type == type && p.name == parameter) return true;
+
+        return false;
     }
 
     private void SetAnimatorSpeed(float value)

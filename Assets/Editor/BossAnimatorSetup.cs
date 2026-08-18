@@ -32,6 +32,8 @@ public static class BossAnimatorSetup
     private const string ScareParam = "Scare";
     private const string Attack1Param = "Attack1";
     private const string Attack2Param = "Attack2";
+    private const string StunParam = "Stun";
+    private const string StunnedParam = "Stunned";
 
     [MenuItem("Tools/Boss/Create Boss Animator")]
     public static void Create()
@@ -65,6 +67,7 @@ public static class BossAnimatorSetup
         AnimationClip walkClip = Match(clips, "walk", "yuru", "yürü", "run", "move");
         AnimationClip attack1Clip = Match(clips, "attack1", "attackone", "attack_1", "atak1", "punch");
         AnimationClip attack2Clip = Match(clips, "attack2", "attacktwo", "attack_2", "atak2", "slash");
+        AnimationClip stunClip = Match(clips, "stun", "sersem", "stagger", "dizzy", "flinch", "knockdown");
 
         // Attack'lar numarasız tek isimle geldiyse (ör. "Attack"), ilk saldırıya onu ver.
         if (attack1Clip == null) attack1Clip = Match(clips, "attack", "atak", "hit");
@@ -77,6 +80,8 @@ public static class BossAnimatorSetup
         EnsureParam(controller, ScareParam, AnimatorControllerParameterType.Trigger);
         EnsureParam(controller, Attack1Param, AnimatorControllerParameterType.Trigger);
         EnsureParam(controller, Attack2Param, AnimatorControllerParameterType.Trigger);
+        EnsureParam(controller, StunParam, AnimatorControllerParameterType.Trigger);
+        EnsureParam(controller, StunnedParam, AnimatorControllerParameterType.Bool);
 
         var sm = controller.layers[0].stateMachine;
 
@@ -90,6 +95,9 @@ public static class BossAnimatorSetup
         AnimatorState scare = EnsureState(sm, "Scare", scareClip, new Vector3(60f, -110f, 0f));
         AnimatorState attack1 = EnsureState(sm, "Attack1", attack1Clip, new Vector3(520f, -40f, 0f));
         AnimatorState attack2 = EnsureState(sm, "Attack2", attack2Clip, new Vector3(520f, 50f, 0f));
+        // Stun: uçan tekme yiyince oynar. Clip kısa olabilir; Stunned bool false olana
+        // kadar state'te kalınır (clip'i Loop Time ile import etmen önerilir).
+        AnimatorState stun = EnsureState(sm, "Stun", stunClip, new Vector3(520f, 140f, 0f));
 
         // --- Geçişler ---
         // Scare: her yerden tetiklenir, animasyon bitince dövüş duruşuna (Idle) geçer.
@@ -106,6 +114,11 @@ public static class BossAnimatorSetup
         EnsureAnyState(sm, attack2, Attack2Param);
         EnsureTrans(attack2, idle, true, 0.85f);
 
+        // Sersemleme: her yerden (saldırının ortasında bile) kesip oynar,
+        // BossFight Stunned'ı false yapınca Idle'a döner.
+        EnsureAnyState(sm, stun, StunParam);
+        EnsureTrans(stun, idle, false, 0f, (StunnedParam, AnimatorConditionMode.IfNot, 0f));
+
         EditorUtility.SetDirty(controller);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -116,13 +129,15 @@ public static class BossAnimatorSetup
                   RoleLine("Idle", idleClip) +
                   RoleLine("Walk", walkClip) +
                   RoleLine("Attack1", attack1Clip) +
-                  RoleLine("Attack2", attack2Clip));
+                  RoleLine("Attack2", attack2Clip) +
+                  RoleLine("Stun", stunClip));
 
         WarnMissing("Scare", scareClip);
         WarnMissing("Idle", idleClip);
         WarnMissing("Walk", walkClip);
         WarnMissing("Attack1", attack1Clip);
         WarnMissing("Attack2", attack2Clip);
+        WarnMissing("Stun", stunClip);
 
         Debug.Log($"Hazir: {ControllerPath}\nBoss'un Animator'ina bu controller'i ata; " +
                   "BossFight ve BossRoomTurn parametre adlarini zaten bunlara gore kullaniyor.", controller);

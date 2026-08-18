@@ -33,6 +33,8 @@ public class PlayerAttack : MonoBehaviour
         public float forwardOffset = 1.1f;
         [Tooltip("Hedefe uygulanacak itme kuvveti.")]
         public float knockbackForce = 5f;
+        [Tooltip("Hedefi sersemletme süresi (saniye). 0 = yok. Sadece IStunnable olan hedefler (boss) etkilenir.")]
+        public float stunDuration = 0f;
         [Tooltip("Vuruş konisinin toplam açısı (derece). 360 = her yön.")]
         [Range(0f, 360f)] public float angle = 160f;
         [Tooltip("Bu vuruş isabet edince kısa zaman donması (hit-stop) uygulansın mı?")]
@@ -60,14 +62,15 @@ public class PlayerAttack : MonoBehaviour
     };
 
     [Header("Uçan Tekme (havada saldırı)")]
-    [Tooltip("Kick1 vuruşunun ayarları. Yerdeki combo'dan bağımsızdır; hasar penceresi uçuş boyu açıktır.")]
+    [Tooltip("Kick1 vuruşunun ayarları. Yerdeki combo'dan bağımsızdır; hasar penceresi uçuş boyu açıktır. Ağır knockback + boss'a sersemletme uygular.")]
     [SerializeField]
     private ComboStep airKick = new ComboStep
     {
         damage = 35f,
         radius = 1.3f,
         forwardOffset = 1.2f,
-        knockbackForce = 12f,
+        knockbackForce = 60f,   // yerdeki combo'nun ~5 katı: tekme düşmanı savursun
+        stunDuration = 2f,      // boss 2 saniye sersemler (diğer düşmanlar etkilenmez)
         angle = 200f,
         hitStop = true,
     };
@@ -220,7 +223,8 @@ public class PlayerAttack : MonoBehaviour
             Vector3 hitPoint = col.ClosestPoint(origin);
             Vector3 hitDir = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : transform.forward;
 
-            var info = new DamageInfo(data.damage, hitPoint, hitDir, data.knockbackForce, gameObject);
+            var info = new DamageInfo(data.damage, hitPoint, hitDir, data.knockbackForce, gameObject,
+                                      data.stunDuration);
             target.TakeDamage(info);
 
             SpawnHitVfx(hitPoint);

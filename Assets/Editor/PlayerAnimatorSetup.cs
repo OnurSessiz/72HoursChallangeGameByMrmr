@@ -12,6 +12,7 @@ using UnityEngine;
 ///   Jump / Fall / Land  : Any State -(Jump)-> JumpStart -(VerticalSpeed<0)-> Falling
 ///                         Falling -(IsGrounded)-> Land -> Idle;  Idle/Walk -(!IsGrounded)-> Falling
 ///   Hit                 : Any State -(Hit)-> Hit -> Idle (exit time)
+///   Die                 : Any State -(Die)-> Die (donusu yok; karakter olu kalir)
 ///   Kick1 (ucan tekme)  : Any State -(Kick1)-> Kick1 -> Idle (exit time)
 /// </summary>
 public static class PlayerAnimatorSetup
@@ -90,9 +91,19 @@ public static class PlayerAnimatorSetup
             EnsureTrans(hit, idle, true, 0.8f);
         }
 
+        // --- Die: olum animasyonu. Any State uzerinden her seyi keser ve
+        // CIKISI YOKTUR: karakter son karede kalir (sahneyi PlayerHealth yeniden yukler).
+        EnsureParam(controller, "Die", AnimatorControllerParameterType.Trigger);
+        AnimationClip deathClip = CharacterClips.FindDeath(new[] { FbxPath, KickFbxPath });
+        if (deathClip != null)
+        {
+            var die = EnsureState(sm, "Die", deathClip);
+            EnsureAnyState(sm, die, ("Die", AnimatorConditionMode.If, 0f));
+        }
+
         EditorUtility.SetDirty(controller);
         AssetDatabase.SaveAssets();
-        Debug.Log("Player animasyonlari baglandi (Dash/Dodge/Jump/Fall/Land/Hit/Kick1).");
+        Debug.Log("Player animasyonlari baglandi (Dash/Dodge/Jump/Fall/Land/Hit/Kick1/Die).");
     }
 
     // --- Yardimcilar ---
@@ -121,6 +132,20 @@ public static class PlayerAnimatorSetup
 
         var clip = LoadClip(clipName, fbxPath);
         if (clip == null) { Debug.LogWarning($"Klip bulunamadi: {clipName} ({fbxPath})"); return null; }
+
+        return EnsureState(sm, name, clip);
+    }
+
+    /// <summary>Klibi hazir gelen state (ad ile aranamayan, disaridan bulunmus klipler icin).</summary>
+    private static AnimatorState EnsureState(AnimatorStateMachine sm, string name, AnimationClip clip)
+    {
+        var existing = FindState(sm, name);
+        if (existing != null)
+        {
+            if (existing.motion == null) existing.motion = clip;
+            return existing;
+        }
+
 
         var state = sm.AddState(name);
         state.motion = clip;

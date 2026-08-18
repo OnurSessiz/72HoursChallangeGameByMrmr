@@ -6,7 +6,8 @@ using UnityEngine.SceneManagement;
 /// Oyuncunun canının tek otoritesi. Tüm hasar buradan geçer:
 ///   - TakeDamage(amount): normal hasar (düşman, düşen obje). Dodge i-frame'inde yok sayılır.
 ///   - Kill(): lava gibi ani ölüm; i-frame'i yok sayar.
-/// Can 0'a inince Die() çalışır, kısa gecikmeyle sahne 0'dan yeniden yüklenir.
+/// Can 0'a inince Die() çalışır: kontrol kesilir, Die animasyonu oynar ve
+/// deathReloadDelay sonunda sahne yeniden yüklenir.
 /// UI/ses için HealthChanged ve Died event'leri sunulur.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
@@ -18,8 +19,14 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     [Header("Hasar Zamanlaması")]
     [Tooltip("Hasar aldıktan sonra kısa dokunulmazlık; tek çarpışmanın çoklu sayılmasını önler.")]
     [SerializeField] private float damageInvulnDuration = 0.3f;
-    [Tooltip("Ölümden sahne yeniden yüklenene kadar geçen süre.")]
-    [SerializeField] private float deathReloadDelay = 1.2f;
+    [Tooltip("Ölümden sahne yeniden yüklenene kadar geçen süre. Ölüm animasyonunun uzunluğuna göre ayarla.")]
+    [SerializeField] private float deathReloadDelay = 3f;
+
+    [Header("Ölüm")]
+    [Tooltip("Ölünce tetiklenecek Animator trigger'ı. Controller'da yoksa sessizce atlanır.")]
+    [SerializeField] private string deathTrigger = "Die";
+    [Tooltip("Ölünce ceset kaymasın diye hız sıfırlanır ve rotasyon kilitlenir.")]
+    [SerializeField] private bool freezeOnDeath = true;
 
     // --- Okuma erişimi ---
     public float MaxHealth => maxHealth;
@@ -31,11 +38,15 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public event Action Died;
 
     private PlayerController _controller;
+    private PlayerAttack _attack;
+    private Rigidbody _rb;
     private float _lastDamageTime = Mathf.NegativeInfinity;
 
     private void Awake()
     {
         _controller = GetComponent<PlayerController>();
+        _attack = GetComponent<PlayerAttack>();
+        _rb = GetComponent<Rigidbody>();
         Current = maxHealth;
     }
 
@@ -88,15 +99,33 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (IsDead) return;
         IsDead = true;
 
-        // Kontrolü kes (fizik/animasyon sürer, girişe tepki vermez).
+        // Ölüm animasyonunu başlat. Any State üzerinden geldiği için o an ne oynuyorsa keser.
+        if (_controller != null) _controller.SetAnimTrigger(deathTrigger);
+
+        // Kontrolü kes: giriş işlenmez ama fizik ve animasyon sürer.
         if (_controller != null)
         {
+            _controller.EndAirAttack();   // uçan tekme ortasında ölürsek hasar penceresi kapansın
             _controller.enabled = false;
-            _controller.TakeHit();   // basit ölüm tepkisi (hit animasyonu)
         }
+
+        // Saldırı tarafı da sussun; tekme taraması her karede çalışıyordu.
+        if (_attack != null) _attack.enabled = false;
+
+        if (freezeOnDeath) FreezeBody();
 
         Died?.Invoke();
         Invoke(nameof(ReloadScene), deathReloadDelay);
+    }
+
+    /// <summary>Cesedi durdurur: yatay kayma ve devrilme olmasın, yerçekimi kalsın.</summary>
+    private void FreezeBody()
+    {
+        if (_rb == null) return;
+
+        _rb.linearVelocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+        _rb.constraints = RigidbodyConstraints.FreezeRotation;
     }
 
     private void ReloadScene()

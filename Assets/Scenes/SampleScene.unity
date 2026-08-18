@@ -7132,7 +7132,7 @@ MonoBehaviour:
   detectionRadius: 54.3
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 1
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 92.12
@@ -7595,7 +7595,7 @@ MonoBehaviour:
   detectionRadius: 24.2
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 1
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 94.49
@@ -8665,7 +8665,7 @@ MonoBehaviour:
   detectionRadius: 30
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 0.5
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 0
@@ -10879,7 +10879,7 @@ MonoBehaviour:
   detectionRadius: 42.7
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 0.5
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: -1.83
@@ -10892,7 +10892,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   audioSource: {fileID: 0}
-  enterRangeClip: {fileID: 0}
+  enterRangeClip: {fileID: 8300000, guid: d46fba1e3e7986946b9dfe805bfb74c3, type: 3}
   turnClip: {fileID: 0}
   ambientLoopClip: {fileID: 0}
   sfxVolume: 1
@@ -15001,6 +15001,9 @@ MonoBehaviour:
   knockbackForce: 8
   knockbackUpward: 2
   damage: 15
+  animator: {fileID: 0}
+  speedParameter: Speed
+  speedDampTime: 0.15
 --- !u!65 &1132243734
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -16290,6 +16293,8 @@ MonoBehaviour:
   maxHealth: 100
   damageInvulnDuration: 0.3
   deathReloadDelay: 3.03
+  deathTrigger: Die
+  freezeOnDeath: 1
 --- !u!114 &1235894566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16719,7 +16724,7 @@ MonoBehaviour:
   dieTrigger: Die
   disableOnDeath: []
   disableCollidersOnDeath: 1
-  destroyDelay: 3
+  destroyDelay: 10
   hitVfxPrefab: {fileID: 0}
   hitVfxLifetime: 2
   audioSource: {fileID: 0}
@@ -24065,7 +24070,7 @@ MonoBehaviour:
   detectionRadius: 30
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 0.5
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 2.52
@@ -24782,7 +24787,7 @@ MonoBehaviour:
   detectionRadius: 54.3
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 1
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 91.4
@@ -26455,7 +26460,7 @@ MonoBehaviour:
   detectionRadius: 30
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 0.5
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 0
@@ -28230,10 +28235,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StatueWatcher
   target: {fileID: 1235894560}
   rotateTransform: {fileID: 2010386378}
-  detectionRadius: 12
+  detectionRadius: 36
   exitBuffer: 1.5
   turnMode: 0
-  rotationSpeed: 3
+  rotationSpeed: 1
   snapInterval: 1.2
   yawOnly: 1
   yawOffset: 94.1

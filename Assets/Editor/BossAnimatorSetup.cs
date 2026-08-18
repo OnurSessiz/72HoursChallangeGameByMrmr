@@ -34,6 +34,7 @@ public static class BossAnimatorSetup
     private const string Attack2Param = "Attack2";
     private const string StunParam = "Stun";
     private const string StunnedParam = "Stunned";
+    private const string DieParam = "Die";
 
     [MenuItem("Tools/Boss/Create Boss Animator")]
     public static void Create()
@@ -68,6 +69,9 @@ public static class BossAnimatorSetup
         AnimationClip attack1Clip = Match(clips, "attack1", "attackone", "attack_1", "atak1", "punch");
         AnimationClip attack2Clip = Match(clips, "attack2", "attacktwo", "attack_2", "atak2", "slash");
         AnimationClip stunClip = Match(clips, "stun", "sersem", "stagger", "dizzy", "flinch", "knockdown");
+        // Ölüm klibi boss FBX'inde olmayabilir; tüm karakter kliplerinde aranır
+        // (oyuncu, boss ve moblar aynı iskeleti paylaşıyor).
+        AnimationClip dieClip = Match(clips, "die", "death", "dead", "olum", "olme") ?? CharacterClips.FindDeath(SourceFbxPaths);
 
         // Attack'lar numarasız tek isimle geldiyse (ör. "Attack"), ilk saldırıya onu ver.
         if (attack1Clip == null) attack1Clip = Match(clips, "attack", "atak", "hit");
@@ -82,6 +86,7 @@ public static class BossAnimatorSetup
         EnsureParam(controller, Attack2Param, AnimatorControllerParameterType.Trigger);
         EnsureParam(controller, StunParam, AnimatorControllerParameterType.Trigger);
         EnsureParam(controller, StunnedParam, AnimatorControllerParameterType.Bool);
+        EnsureParam(controller, DieParam, AnimatorControllerParameterType.Trigger);
 
         var sm = controller.layers[0].stateMachine;
 
@@ -98,6 +103,9 @@ public static class BossAnimatorSetup
         // Stun: uçan tekme yiyince oynar. Clip kısa olabilir; Stunned bool false olana
         // kadar state'te kalınır (clip'i Loop Time ile import etmen önerilir).
         AnimatorState stun = EnsureState(sm, "Stun", stunClip, new Vector3(520f, 140f, 0f));
+        // Die: Health.dieTrigger ile tetiklenir. Çıkış geçişi YOKTUR; boss ölü kalır
+        // (Health.destroyDelay dolunca obje yok edilir).
+        AnimatorState die = EnsureState(sm, "Die", dieClip, new Vector3(520f, 230f, 0f));
 
         // --- Geçişler ---
         // Scare: her yerden tetiklenir, animasyon bitince dövüş duruşuna (Idle) geçer.
@@ -119,6 +127,9 @@ public static class BossAnimatorSetup
         EnsureAnyState(sm, stun, StunParam);
         EnsureTrans(stun, idle, false, 0f, (StunnedParam, AnimatorConditionMode.IfNot, 0f));
 
+        // Ölüm: her şeyi keser ve dönüş yok.
+        EnsureAnyState(sm, die, DieParam);
+
         EditorUtility.SetDirty(controller);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -130,7 +141,8 @@ public static class BossAnimatorSetup
                   RoleLine("Walk", walkClip) +
                   RoleLine("Attack1", attack1Clip) +
                   RoleLine("Attack2", attack2Clip) +
-                  RoleLine("Stun", stunClip));
+                  RoleLine("Stun", stunClip) +
+                  RoleLine("Die", dieClip));
 
         WarnMissing("Scare", scareClip);
         WarnMissing("Idle", idleClip);
@@ -138,6 +150,7 @@ public static class BossAnimatorSetup
         WarnMissing("Attack1", attack1Clip);
         WarnMissing("Attack2", attack2Clip);
         WarnMissing("Stun", stunClip);
+        WarnMissing("Die", dieClip);
 
         Debug.Log($"Hazir: {ControllerPath}\nBoss'un Animator'ina bu controller'i ata; " +
                   "BossFight ve BossRoomTurn parametre adlarini zaten bunlara gore kullaniyor.", controller);

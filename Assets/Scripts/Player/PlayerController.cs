@@ -340,10 +340,16 @@ public class PlayerController : MonoBehaviour
     /// <summary>Tekme hakkını harcar; yere değince otomatik yenilenir.</summary>
     public void MarkAirAttackUsed() => _airAttackUsed = true;
 
-    /// <summary>Adı verilen Animator trigger'ını ateşler (Dash/Dodge/Jump gibi tek seferlik geçişler).</summary>
+    /// <summary>
+    /// Adı verilen Animator trigger'ını ateşler (Dash/Dodge/Jump/Die gibi tek seferlik geçişler).
+    /// Controller'da o parametre yoksa sessizce atlanır (Unity uyarısı üretmemek için).
+    /// </summary>
     public void SetAnimTrigger(string triggerName)
     {
-        if (animator != null) animator.SetTrigger(triggerName);
+        if (animator == null || string.IsNullOrEmpty(triggerName)) return;
+        if (!HasParameter(Animator.StringToHash(triggerName))) return;
+
+        animator.SetTrigger(triggerName);
     }
 
     /// <summary>

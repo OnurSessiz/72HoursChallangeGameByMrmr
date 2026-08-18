@@ -33,9 +33,27 @@ public class EnemyFollow : MonoBehaviour
     [Tooltip("Her saldırıda verilecek hasar.")]
     [SerializeField] private float damage = 15f;
 
+    [Header("Animasyon")]
+    [Tooltip("Mobun Animator'ı. Boşsa bu objede ve child'larında aranır.")]
+    [SerializeField] private Animator animator;
+    [Tooltip("Idle <-> Walk geçişini süren float parametre (Enemy.controller ile aynı).")]
+    [SerializeField] private string speedParameter = "Speed";
+    [Tooltip("Hız değerinin yumuşatma süresi.")]
+    [SerializeField] private float speedDampTime = 0.15f;
+
     private Rigidbody _targetRb;
     private PlayerHealth _targetHealth;
     private float _lastAttackTime = Mathf.NegativeInfinity;
+
+    private Health _health;
+    private int _speedHash;
+
+    private void Awake()
+    {
+        if (animator == null) animator = GetComponentInChildren<Animator>(true);
+        _health = GetComponent<Health>();
+        _speedHash = Animator.StringToHash(speedParameter);
+    }
 
     private void Start()
     {
@@ -56,9 +74,21 @@ public class EnemyFollow : MonoBehaviour
 
     private void Update()
     {
-        if (target == null) return;
+        // Kendi canımız bittiyse hiçbir şey yapma; ölüm animasyonu Health tarafından oynatılır.
+        if (_health != null && _health.IsDead) return;
+
+        if (target == null)
+        {
+            SetAnimatorSpeed(0f);
+            return;
+        }
+
         // Oyuncu öldüyse kovalamayı ve saldırmayı bırak.
-        if (_targetHealth != null && _targetHealth.IsDead) return;
+        if (_targetHealth != null && _targetHealth.IsDead)
+        {
+            SetAnimatorSpeed(0f);
+            return;
+        }
 
         // Yatay düzlemde mesafe (yükseklik farkını yok say).
         Vector3 toTarget = target.position - transform.position;
@@ -66,7 +96,11 @@ public class EnemyFollow : MonoBehaviour
         float distance = toTarget.magnitude;
 
         // Menzil dışındaysa takip etme.
-        if (distance > detectionRange) return;
+        if (distance > detectionRange)
+        {
+            SetAnimatorSpeed(0f);
+            return;
+        }
 
         // Hedefe dön (tüm yönler, yumuşak).
         if (toTarget.sqrMagnitude > 0.0001f)
@@ -75,11 +109,16 @@ public class EnemyFollow : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
         }
 
-        // stopDistance'a kadar yaklaş, sonra dur.
+        // stopDistance'a kadar yaklaş, sonra dur. Speed parametresi Walk animasyonunu açar.
         if (distance > stopDistance)
         {
             Vector3 step = toTarget.normalized * (moveSpeed * Time.deltaTime);
             transform.position += step;
+            SetAnimatorSpeed(1f);
+        }
+        else
+        {
+            SetAnimatorSpeed(0f);
         }
 
         // Menzildeyse ve cooldown dolmuşsa saldır (oyuncuyu it).
@@ -100,6 +139,19 @@ public class EnemyFollow : MonoBehaviour
         // Yatay itme + isteğe bağlı yukarı bileşen.
         Vector3 force = horizontalDir * knockbackForce + Vector3.up * knockbackUpward;
         _targetRb.AddForce(force, ForceMode.Impulse);
+    }
+
+    /// <summary>Animator'daki hız parametresini yumuşatarak yazar (Idle &lt;-&gt; Walk).</summary>
+    private void SetAnimatorSpeed(float value)
+    {
+        if (animator == null) return;
+        animator.SetFloat(_speedHash, value, speedDampTime, Time.deltaTime);
+    }
+
+    /// <summary>Devre dışı kalınca (ör. ölümde Health kapatır) yürüyüş animasyonu asılı kalmasın.</summary>
+    private void OnDisable()
+    {
+        if (animator != null) animator.SetFloat(_speedHash, 0f);
     }
 
     private void OnDrawGizmosSelected()

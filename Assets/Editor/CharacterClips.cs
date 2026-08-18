@@ -43,12 +43,25 @@ public static class CharacterClips
     {
         List<AnimationClip> clips = All(preferredPaths);
 
-        // Dış döngü anahtar kelime: "die" eşleşmesi "devril" eşleşmesine tercih edilir.
+        // 1) Klip adına göre. Dış döngü anahtar kelime: "die" eşleşmesi "devril"e tercih edilir.
         foreach (string keyword in keywords)
         {
             string key = keyword.ToLowerInvariant();
             foreach (AnimationClip clip in clips)
                 if (clip.name.ToLowerInvariant().Contains(key)) return clip;
+        }
+
+        // 2) Klip adı eşleşmediyse DOSYA adına göre (ör. deathanim.fbx içindeki klip
+        // "metarig|Take 001" olabilir; dosya adı yine de ne olduğunu söylüyor).
+        foreach (string keyword in keywords)
+        {
+            string key = keyword.ToLowerInvariant();
+            foreach (AnimationClip clip in clips)
+            {
+                string file = System.IO.Path.GetFileNameWithoutExtension(
+                    AssetDatabase.GetAssetPath(clip)).ToLowerInvariant();
+                if (file.Contains(key)) return clip;
+            }
         }
 
         return null;

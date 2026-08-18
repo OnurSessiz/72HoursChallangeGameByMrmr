@@ -11,6 +11,8 @@ using UnityEngine;
 /// Kurulan akış:
 ///   Idle &lt;-(Speed)-&gt; Walk           (EnemyFollow Speed parametresini yazar)
 ///   Any State -(Hit)-> Hit -> Idle     (Health.hitTrigger)
+///   Any State -(Attack1)-> Attack1 -> Idle   (EnemyFollow.attackTrigger)
+///   Any State -(Whistle)-> Whistle -> Idle   (HirtRoomAmbush; klip sonra atanabilir)
 ///   Any State -(Die)-> Die             (Health.dieTrigger; dönüş yok, mob ölü kalır)
 ///
 /// Menü:
@@ -21,18 +23,29 @@ using UnityEngine;
 public static class EnemyAnimatorSetup
 {
     private const string ControllerPath = "Assets/Animations/Enemy.controller";
+    /// <summary>Hırt modellerinin klasörü. Klipler önce burada aranır ki oyuncunun
+    /// animasyonları (ve içlerindeki AttackHit event'leri) moba sızmasın.</summary>
+    private const string EnemyModelsFolder = "Assets/Models/enemy";
 
     private const string SpeedParam = "Speed";
     private const string HitParam = "Hit";
     private const string DieParam = "Die";
+    private const string AttackParam = "Attack1";
+    private const string WhistleParam = "Whistle";
 
     [MenuItem("Tools/Enemy/Create Enemy Animator")]
     public static void Create()
     {
-        AnimationClip idleClip = CharacterClips.Find("idle", "bekle");
-        AnimationClip walkClip = CharacterClips.Find("catwalk", "realwalk", "walk", "yuru", "run");
-        AnimationClip hitClip = CharacterClips.Find("cathit", "hit", "flinch");
-        AnimationClip dieClip = CharacterClips.FindDeath();
+        // Önce hırt FBX'leri: aynı isimli klip oyuncunun FBX'inde de varsa mobunki kazanır.
+        string[] preferred = EnemyFbxPaths();
+
+        AnimationClip idleClip = CharacterClips.Find(preferred, "idle", "bekle");
+        AnimationClip walkClip = CharacterClips.Find(preferred, "catwalk", "realwalk", "walk", "yuru", "run");
+        AnimationClip hitClip = CharacterClips.Find(preferred, "cathit", "hit", "flinch");
+        AnimationClip dieClip = CharacterClips.FindDeath(preferred);
+        AnimationClip attackClip = CharacterClips.Find(preferred, "attack1", "attackone", "atak1", "punch", "attack");
+        // Islık klibi daha hazır olmayabilir; bulunamazsa state boş (slot olarak) kurulur.
+        AnimationClip whistleClip = CharacterClips.Find(preferred, "whistle", "islik", "ıslık", "sinyal", "call");
 
         var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         if (controller == null)
@@ -41,6 +54,8 @@ public static class EnemyAnimatorSetup
         EnsureParam(controller, SpeedParam, AnimatorControllerParameterType.Float);
         EnsureParam(controller, HitParam, AnimatorControllerParameterType.Trigger);
         EnsureParam(controller, DieParam, AnimatorControllerParameterType.Trigger);
+        EnsureParam(controller, AttackParam, AnimatorControllerParameterType.Trigger);
+        EnsureParam(controller, WhistleParam, AnimatorControllerParameterType.Trigger);
 
         var sm = controller.layers[0].stateMachine;
 
@@ -48,6 +63,9 @@ public static class EnemyAnimatorSetup
         AnimatorState walk = EnsureState(sm, "Walk", walkClip, new Vector3(260f, 90f, 0f));
         AnimatorState hit = EnsureState(sm, "Hit", hitClip, new Vector3(520f, -40f, 0f));
         AnimatorState die = EnsureState(sm, "Die", dieClip, new Vector3(520f, 60f, 0f));
+        AnimatorState attack = EnsureState(sm, "Attack1", attackClip, new Vector3(520f, 150f, 0f));
+        // Islık: hırt odası pususunda ilk hırtın çaldığı animasyon. Klip sonra atanabilir.
+        AnimatorState whistle = EnsureState(sm, "Whistle", whistleClip, new Vector3(520f, 240f, 0f));
 
         sm.defaultState = idle;
 
@@ -58,6 +76,14 @@ public static class EnemyAnimatorSetup
         // Hasar tepkisi: her yerden kesip oynar, bitince Idle'a döner.
         EnsureAnyState(sm, hit, HitParam);
         EnsureTrans(hit, idle, true, 0.8f);
+
+        // Saldırı: her yerden kesip oynar, bitince Idle'a döner (EnemyFollow tetikler).
+        EnsureAnyState(sm, attack, AttackParam);
+        EnsureTrans(attack, idle, true, 0.85f);
+
+        // Islık: HirtRoomAmbush tetikler; bitince Idle'a döner, sonra saldırı başlar.
+        EnsureAnyState(sm, whistle, WhistleParam);
+        EnsureTrans(whistle, idle, true, 0.9f);
 
         // Ölüm: her şeyi keser, çıkışı yoktur (obje Health.destroyDelay ile yok edilir).
         EnsureAnyState(sm, die, DieParam);
@@ -71,6 +97,8 @@ public static class EnemyAnimatorSetup
                   RoleLine("Walk", walkClip) +
                   RoleLine("Hit", hitClip) +
                   RoleLine("Die", dieClip) +
+                  RoleLine("Attack1", attackClip) +
+                  RoleLine("Whistle", whistleClip) +
                   "Hazir: " + ControllerPath + "\nMobun Animator'ina bu controller'i ata " +
                   "(ya da Tools/Enemy/Setup Selected Enemies kullan).", controller);
 
@@ -78,16 +106,34 @@ public static class EnemyAnimatorSetup
         WarnMissing("Walk", walkClip);
         WarnMissing("Hit", hitClip);
         WarnMissing("Die", dieClip);
+        WarnMissing("Attack1", attackClip);
+        // Islık klibi henüz hazır olmayabilir; eksikse uyarma, sadece bilgi ver.
+        if (whistleClip == null)
+            Debug.Log("Islik klibi bulunamadi. Enemy.controller icindeki bos Whistle state'ine " +
+                      "animasyonu hazir olunca surukle (ya da adinda 'Whistle' gecen klibi projeye " +
+                      "atip bu araci tekrar calistir).");
 
         Selection.activeObject = controller;
     }
 
     /// <summary>
-    /// Seçili mobları dövüşe hazırlar: Health (hasar/ölüm otoritesi) ve Animator ekler,
-    /// Animator'ın controller'ı boşsa Enemy.controller'ı atar. Var olan ayarları ezmez.
+    /// Seçili mobları dövüşe hazırlar: Health, EnemyFollow ve Animator ekler; Animator'ın
+    /// controller'ı boşsa Enemy.controller'ı atar. Var olan ayarları ezmez.
     /// </summary>
     [MenuItem("Tools/Enemy/Setup Selected Enemies")]
-    public static void SetupSelected()
+    public static void SetupSelected() => Setup(false);
+
+    /// <summary>
+    /// Pusu hırtları: aynı kurulum + "Activate On Start" kapatılır, böylece ıslık
+    /// çalınana kadar beklerler (HirtRoomAmbush uyandırır).
+    /// </summary>
+    [MenuItem("Tools/Enemy/Setup Selected Ambush Enemies")]
+    public static void SetupSelectedAmbush() => Setup(true);
+
+    [MenuItem("Tools/Enemy/Setup Selected Ambush Enemies", true)]
+    private static bool SetupSelectedAmbushValidate() => Selection.gameObjects.Length > 0;
+
+    private static void Setup(bool waitForWhistle)
     {
         var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         if (controller == null)
@@ -102,9 +148,30 @@ public static class EnemyAnimatorSetup
         {
             if (go.GetComponent<Health>() == null) Undo.AddComponent<Health>(go);
 
+            // Collider olmadan mob HASAR ALMAZ: PlayerAttack vuruşu OverlapSphere ile
+            // tarıyor, collider bulamazsa Health'e hiç ulaşamaz. FBX modellerinde
+            // collider gelmediği için modelin sınırlarına göre bir kapsül ekliyoruz.
+            if (go.GetComponentInChildren<Collider>(true) == null) AddCharacterCapsule(go);
+
+            var follow = go.GetComponent<EnemyFollow>();
+            if (follow == null) follow = Undo.AddComponent<EnemyFollow>(go);
+
+            // activateOnStart private olduğu için SerializedObject üzerinden yazılır.
+            if (waitForWhistle)
+            {
+                var so = new SerializedObject(follow);
+                so.FindProperty("activateOnStart").boolValue = false;
+                so.ApplyModifiedProperties();
+            }
+
             // Animator zaten bir child'da olabilir (skinned mesh kurulumlarında sık).
             var animator = go.GetComponentInChildren<Animator>(true);
             if (animator == null) animator = Undo.AddComponent<Animator>(go);
+
+            // Animation Event köprüsü Animator ile AYNI objede olmalı; saldırı klipleri
+            // oyuncunun FBX'inden geldiğinde "AttackHit has no receiver" uyarısını keser.
+            if (animator.GetComponent<EnemyAnimationEvents>() == null)
+                Undo.AddComponent<EnemyAnimationEvents>(animator.gameObject);
 
             if (animator.runtimeAnimatorController == null)
             {
@@ -115,11 +182,63 @@ public static class EnemyAnimatorSetup
             touched++;
         }
 
-        Debug.Log("[EnemyAnimatorSetup] " + touched + " mob hazirlandi (Health + Animator).");
+        Debug.Log("[EnemyAnimatorSetup] " + touched + " mob hazirlandi (Health + Collider + EnemyFollow + Animator)" +
+                  (waitForWhistle ? " - islik bekliyorlar." : "."));
     }
 
     [MenuItem("Tools/Enemy/Setup Selected Enemies", true)]
     private static bool SetupSelectedValidate() => Selection.gameObjects.Length > 0;
+
+    /// <summary>
+    /// Modelin görünür sınırlarına oturan bir CapsuleCollider ekler. Yarıçap, T-poz
+    /// kollarından şişmesin diye boyun dörtte biriyle sınırlanır.
+    /// </summary>
+    private static void AddCharacterCapsule(GameObject go)
+    {
+        var capsule = Undo.AddComponent<CapsuleCollider>(go);
+        capsule.direction = 1;   // Y ekseni (ayakta duran karakter)
+
+        Bounds? bounds = null;
+        foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            if (bounds.HasValue)
+            {
+                Bounds merged = bounds.Value;
+                merged.Encapsulate(r.bounds);
+                bounds = merged;
+            }
+            else
+            {
+                bounds = r.bounds;
+            }
+        }
+
+        // Görünür mesh yoksa Unity'nin varsayılan kapsülü kalsın.
+        if (!bounds.HasValue) return;
+
+        Vector3 scale = go.transform.lossyScale;
+        float sx = Mathf.Max(0.0001f, Mathf.Abs(scale.x));
+        float sy = Mathf.Max(0.0001f, Mathf.Abs(scale.y));
+        float sz = Mathf.Max(0.0001f, Mathf.Abs(scale.z));
+
+        Bounds b = bounds.Value;
+        float height = b.size.y / sy;
+        float radius = Mathf.Max(b.size.x / sx, b.size.z / sz) * 0.5f;
+
+        capsule.height = height;
+        capsule.radius = Mathf.Min(radius, height * 0.25f);
+        capsule.center = go.transform.InverseTransformPoint(b.center);
+    }
+
+    /// <summary>Assets/Models/enemy altındaki tüm model dosyaları (öncelikli klip kaynağı).</summary>
+    private static string[] EnemyFbxPaths()
+    {
+        if (!AssetDatabase.IsValidFolder(EnemyModelsFolder)) return new string[0];
+
+        return AssetDatabase.FindAssets("t:Model", new[] { EnemyModelsFolder })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .ToArray();
+    }
 
     // --- Yardimcilar (BossAnimatorSetup ile ayni sozlesme) ---
 

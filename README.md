@@ -1,182 +1,184 @@
 # 72 Hours Challange Game by Mırmır
 
-72 saatlik bir game jam meydan okuması için sıfırdan yapılmış, üçüncü şahıs aksiyon / hafif korku oyunu. Bir zindanda uyanıyorsun; hırtları temizliyor, çift kılıçlı nöbetçiyi geçiyor, bossu deviriyor ve kaya yağmurunun altında tepeye tırmanarak kaçıyorsun.
+A third-person action / light horror game built from scratch for a 72-hour game jam challenge. You wake up in a dungeon: clear out the goons, get past the twin-blade sentry, bring down the boss, and escape by climbing the hill under a rain of rolling boulders.
 
-**Unity 6000.5.5f1 · URP · New Input System · Platform: Windows**
+**Unity 6000.5.5f1 · URP · New Input System · Windows**
 
-![Boss odasına giden koridor — heykel, meşaleler, görev paneli ve yetenek göstergeleri](Docs/boss-corridor.png)
+[**▶ Play the demo**](https://onursessiz.github.io) — the build is on my site under *Demo Games*.
+
+![The corridor leading to the boss room — statue, torches, quest panel and ability indicators](Docs/boss-corridor.png)
 
 <p align="center">
-  <img src="Docs/boss.png" width="70%" alt="Boss odasında bossla yüz yüze">
+  <img src="Docs/boss.png" width="70%" alt="Face to face with the boss in the boss room">
 </p>
 
 | | |
 |---|---|
-| Geliştirme süresi | 16–19 Ağustos 2026 (72 saat) |
-| Sürüm | v1.0 Alpha |
-| Tür | 3. şahıs aksiyon, combo dövüş, kısa kampanya |
-| Süre | ~10-15 dakika |
+| Development time | 16–19 August 2026 (72 hours) |
+| Version | v1.0 Alpha |
+| Genre | Third-person action, combo combat, short campaign |
+| Length | ~10-15 minutes |
 
 ---
 
-## Oynanış
+## Gameplay
 
-Oyun tek sahnede (`Assets/Scenes/SampleScene.unity`) geçer ve dört aşamalı doğrusal bir ilerleme kurgusu vardır. Her aşama bitmeden bir sonraki odanın kapısı açılmaz.
+The game takes place in a single scene (`Assets/Scenes/SampleScene.unity`) and follows a linear four-stage progression. Each room stays locked until the previous stage is finished.
 
-| # | Aşama | Görev |
+| # | Stage | Objective |
 |---|---|---|
-| 1 | **Hırt Odası** | Odaya girince ıslıkçı hırt ıslığı çalar, uyuyan tüm hırtlar aynı anda uyanır. Hepsini temizle. |
-| 2 | **Okyanus Odası** | Yerinden hiç kıpırdamayan, 360° dönen saldırısıyla seni denize savuran BlackSwordsman'ı geç. Suya düşmek anında ölüm. |
-| 3 | **Boss Odası** | Kapıdan girerken jump scare + koridordaki heykeller sana döner. Bossu combo ve uçan tekmeyle yen. |
-| 4 | **Kaya Tuzağı** | Gökten yuvarlanan taş yağmurunun altında yokuşu tırmanıp tepeye ulaş → kapanış sekansı. |
+| 1 | **Goon Room** | As you enter, the whistler goon blows his whistle and every sleeping goon in the room wakes at once. Clear them all. |
+| 2 | **Ocean Room** | Get past the BlackSwordsman — he never moves from his spot, but his spinning 360° attack launches you into the sea. Falling in the water is an instant kill. |
+| 3 | **Boss Room** | A jump scare greets you at the door while the statues in the corridor turn to face you. Take the boss down with combos and the flying kick. |
+| 4 | **Rock Trap** | Climb the slope through a rain of falling boulders and reach the top → closing sequence. |
 
-Ekranın sağ altındaki görev paneli sıradaki hedefi ve kalan düşman sayısını canlı gösterir.
+The quest panel in the bottom-right shows the current objective and a live count of the enemies left.
 
-### Kontroller
+### Controls
 
-| Tuş | Aksiyon |
+| Key | Action |
 |---|---|
-| `W A S D` | Hareket (kamera yönüne göre) |
-| `Mouse` | Kamera |
-| `Space` | Zıplama |
-| `Sol Tık` | Saldırı — ard arda basınca combo zinciri |
-| `Space` + `Sol Tık` | **Uçan tekme** — havadayken saldırı; ileri fırlatır, bossu sersemletir |
-| `Sağ Tık` | Takla — süre boyunca hasar almazsın (i-frame) |
+| `W A S D` | Move (relative to the camera) |
+| `Mouse` | Camera |
+| `Space` | Jump |
+| `Left Click` | Attack — press repeatedly to chain the combo |
+| `Space` + `Left Click` | **Flying kick** — attack while airborne; carries you forward and stuns the boss |
+| `Right Click` | Dodge roll — you take no damage for its duration (i-frames) |
 | `Left Shift` | Dash |
 
-Dash 1 sn, takla 1.5 sn cooldown'lıdır; ikisinin de göstergesi ekrandadır. Düşen portakallar can yeniler.
+Dash has a 1s cooldown, the dodge roll 1.5s; both have on-screen indicators. Dropped oranges restore health.
 
 ---
 
-## Çalıştırma
+## Running it
 
-**Hazır build:** `OnurOyunJam/72HoursChallangeGameByMırmır.exe` (build klasörü repoya dahil değildir).
+**Ready-made build:** available from [onursessiz.github.io](https://onursessiz.github.io) under *Demo Games* (the build folder is not part of this repository).
 
-**Kaynaktan:**
+**From source:**
 
 ```bash
 git clone https://github.com/OnurSessiz/72HoursChallangeGameByMrmr.git
 ```
 
-1. Unity Hub → Add → klasörü seç. Editör sürümü **6000.5.5f1** olmalı (URP 17.5 ve Input System 1.19 bu sürüme bağlı).
-2. `Assets/Scenes/SampleScene.unity` sahnesini aç ve Play.
+1. Unity Hub → Add → pick the folder. The editor version must be **6000.5.5f1** (URP 17.5 and Input System 1.19 are tied to it).
+2. Open `Assets/Scenes/SampleScene.unity` and hit Play.
 
-Build almak için: `File → Build Profiles → Windows`, tek sahne olarak `SampleScene` yeterli.
+To build: `File → Build Profiles → Windows`, with `SampleScene` as the only scene.
 
 ---
 
-## Teknik yapı
+## Technical overview
 
-### Oyuncu — state machine
+### Player — state machine
 
-Oyuncu kontrolü `if` yığını yerine state machine ile yazıldı. [`PlayerController`](Assets/Scripts/Player/PlayerController.cs) beyindir: aktif state'i tutar, ortak referansları ve tüm tuning değerlerini state'lere dağıtır, cooldown zaman damgalarını state nesnelerinden bağımsız saklar.
+Player control is written as a state machine rather than a pile of `if` statements. [`PlayerController`](Assets/Scripts/Player/PlayerController.cs) is the brain: it holds the active state, hands the shared references and every tuning value down to the states, and keeps the cooldown timestamps outside the state objects so they survive being re-entered.
 
-| State | İş |
+| State | Job |
 |---|---|
-| [`LocomotionState`](Assets/Scripts/Player/LocomotionState.cs) | Varsayılan: kamera-relative hareket, yumuşak rotasyon, diğer state'lere geçişin tetiklendiği yer |
-| [`AttackState`](Assets/Scripts/Player/AttackState.cs) | Çok adımlı combo; adım geçişi Animation Event ile sürülür, event kurulmazsa zaman aşımı devreye girer |
-| [`AirAttackState`](Assets/Scripts/Player/AirAttackState.cs) | Uçan tekme: yatay hız frenlenmez, hasar penceresi uçuş boyunca açık |
-| [`DashState`](Assets/Scripts/Player/DashState.cs) | Kısa süreli yüksek hızlı itiş |
-| [`DodgeState`](Assets/Scripts/Player/DodgeState.cs) | Yön kilitli takla; Enter'da i-frame açılır, Exit'te kapanır |
-| [`LaunchedState`](Assets/Scripts/Player/LaunchedState.cs) | Knockback. Ayrı state olması şart: Locomotion her FixedUpdate'te `MovePosition` çağırdığı için savrulma aksi halde bir sonraki fizik karesinde siliniyordu |
+| [`LocomotionState`](Assets/Scripts/Player/LocomotionState.cs) | Default: camera-relative movement, smooth rotation, and where transitions into every other state are triggered |
+| [`AttackState`](Assets/Scripts/Player/AttackState.cs) | Multi-step combo; step transitions are driven by Animation Events, with a timeout as a fallback if an event is missing |
+| [`AirAttackState`](Assets/Scripts/Player/AirAttackState.cs) | Flying kick: horizontal velocity is not braked, and the damage window stays open for the whole flight |
+| [`DashState`](Assets/Scripts/Player/DashState.cs) | Short high-speed burst |
+| [`DodgeState`](Assets/Scripts/Player/DodgeState.cs) | Direction-locked roll; i-frames open on Enter and close on Exit |
+| [`LaunchedState`](Assets/Scripts/Player/LaunchedState.cs) | Knockback. It has to be its own state: Locomotion calls `MovePosition` every FixedUpdate, which otherwise wiped the impulse on the next physics frame |
 
-Girdi [`PlayerInputReader`](Assets/Scripts/Player/PlayerInputReader.cs) üzerinden event olarak yayılır; state'ler `Enter`'da abone olur, `Exit`'te bırakır. Kamera pivotu ([`PlayerLook`](Assets/Scripts/Player/PlayerLook.cs)) bilinçli olarak karakterin child'ı **değildir** — child olsaydı karakter döndükçe hareket yönü kayardı.
+Input is broadcast as events through [`PlayerInputReader`](Assets/Scripts/Player/PlayerInputReader.cs); states subscribe in `Enter` and unsubscribe in `Exit`. The camera pivot ([`PlayerLook`](Assets/Scripts/Player/PlayerLook.cs)) is deliberately **not** a child of the character — if it were, the movement direction would drift as the character rotated.
 
-### Dövüş
+### Combat
 
-Vuruş, animasyonun vuruş frame'indeki Animation Event ile tetiklenir; [`PlayerAttack`](Assets/Scripts/Player/PlayerAttack.cs) oyuncunun önünde koni açılı küre taraması yapar. Bulduğu her `IDamageable` bir combo adımında yalnızca **bir kez** hasar alır, yani çok collider'lı düşmanlar çoklu hasar yemez. Combo adımları ayrı ayrı ayarlanır — son vuruş daha sert, daha geniş ve hit-stop'lu.
+Hits fire from an Animation Event on the strike frame; [`PlayerAttack`](Assets/Scripts/Player/PlayerAttack.cs) then runs a cone-limited sphere cast in front of the player. Every `IDamageable` it finds takes damage exactly **once** per combo step, so enemies with several colliders don't get hit multiple times. Combo steps are tuned individually — the final hit is heavier, wider, and comes with hit-stop.
 
-Hasar tek bir sözleşme üzerinden akar: [`IDamageable`](Assets/Scripts/Combat/IDamageable.cs). Düşman/boss/kırılabilir her şeyin canı [`Health`](Assets/Scripts/Combat/Health.cs), oyuncununki [`PlayerHealth`](Assets/Scripts/Player/PlayerHealth.cs). Boss ayrıca `IStunnable`: uçan tekme yiyince sersemler, o sırada yürümez ve saldırmaz. Okyanus gibi ani ölüm alanları, düşen objeler ve sürekli hasar bölgeleri hepsi tek bir [`DamageSource`](Assets/Scripts/World/DamageSource.cs) ile kurulur.
+All damage flows through a single contract: [`IDamageable`](Assets/Scripts/Combat/IDamageable.cs). [`Health`](Assets/Scripts/Combat/Health.cs) owns the health of enemies, the boss and breakables; [`PlayerHealth`](Assets/Scripts/Player/PlayerHealth.cs) owns the player's. The boss is also `IStunnable`: a flying kick staggers it, and while stunned it won't walk, turn or attack. Instant-death volumes like the ocean, falling objects and damage-over-time zones are all set up with the same [`DamageSource`](Assets/Scripts/World/DamageSource.cs).
 
-### İlerleme
+### Progression
 
-Tek otorite [`GameProgress`](Assets/Scripts/Progression/GameProgress.cs); hangi adımın bittiğini yalnızca o bilir. Bir hedef tamamlanınca `StageCompleted` event'i yayılır, o adımı bekleyen [`StageGate`](Assets/Scripts/Progression/StageGate.cs) kapıları collider'larını kapatır ve oda açılır. Hedefler iki çeşit: [`EnemyClearObjective`](Assets/Scripts/Progression/EnemyClearObjective.cs) (listedeki canlar bitince) ve [`ReachPointObjective`](Assets/Scripts/Progression/ReachPointObjective.cs) (trigger'a girince). `enforceOrder` açıkken bir adım, öncekiler bitmeden tamamlanmış sayılmaz — odalar zaten collider'la kilitli olsa da ikinci güvenlik.
+[`GameProgress`](Assets/Scripts/Progression/GameProgress.cs) is the single authority — it alone knows which stage is done. Completing an objective raises `StageCompleted`, and the [`StageGate`](Assets/Scripts/Progression/StageGate.cs) waiting on that stage disables its colliders to open the room. Objectives come in two flavours: [`EnemyClearObjective`](Assets/Scripts/Progression/EnemyClearObjective.cs) (when everything on the list is dead) and [`ReachPointObjective`](Assets/Scripts/Progression/ReachPointObjective.cs) (when the player enters a trigger). With `enforceOrder` on, a stage cannot count as complete before the ones ahead of it — a second layer of safety on top of the collider locks.
 
-Son adım bitince [`EndingSequence`](Assets/Scripts/Progression/EndingSequence.cs) kontrolü keser, sırayla kapanış kameralarını gösterir ve oyunu bitirir.
+Once the final stage lands, [`EndingSequence`](Assets/Scripts/Progression/EndingSequence.cs) takes control away from the player, cuts through the closing cameras in order, and ends the game.
 
-### Atmosfer
+### Atmosphere
 
-- [`HirtRoomAmbush`](Assets/Scripts/Enemy/HirtRoomAmbush.cs) — sinematik kamera, ıslık, ardından odanın topluca uyanması
-- [`BossRoomTurn`](Assets/Scripts/Boss/BossRoomTurn.cs) — jump scare: scare animasyonu, kamera sarsıntısı, oyuncu kilidi
-- [`StatueWatcher`](Assets/Scripts/Boss/StatueWatcher.cs) — heykeller oyuncuya döner; smooth takip, ani seğirme ve *sadece bakmıyorken dönen* Weeping Angel modu var
-- [`RollingBallSpawner`](Assets/Scripts/World/RollingBallSpawner.cs) + [`RollingBall`](Assets/Scripts/World/RollingBall.cs) — gökten doğup yokuş aşağı yuvarlanan taşlar; süre dolunca, haritadan düşünce ya da bir yere sıkışınca kendini temizler
+- [`HirtRoomAmbush`](Assets/Scripts/Enemy/HirtRoomAmbush.cs) — cinematic camera, the whistle, then the whole room waking up together
+- [`BossRoomTurn`](Assets/Scripts/Boss/BossRoomTurn.cs) — the jump scare: scare animation, camera shake, player locked in place
+- [`StatueWatcher`](Assets/Scripts/Boss/StatueWatcher.cs) — statues that turn toward the player, with smooth tracking, sudden twitching, and a Weeping Angel mode that *only* turns while you're not looking
+- [`RollingBallSpawner`](Assets/Scripts/World/RollingBallSpawner.cs) + [`RollingBall`](Assets/Scripts/World/RollingBall.cs) — boulders spawned in the sky that roll down the slope, cleaning themselves up when their lifetime runs out, when they fall off the map, or when they get stuck
 
-### Editör araçları
+### Editor tools
 
-Sahne kurulumunun büyük kısmı elle sürükleme yerine `Assets/Editor` altındaki menü komutlarıyla yapılır — 72 saatte aynı kurulumu tekrar tekrar yapmamak için:
+Most of the scene setup runs through menu commands under `Assets/Editor` instead of manual dragging — so the same wiring didn't have to be redone by hand over 72 hours:
 
 ```
-Tools/Progression/Setup Game Flow      → GameProgress + üç kapı + üç hedefi bağlar
-Tools/Player/Create Health Bar         → oyuncu can barı
-Tools/Player/Create Ability Buttons    → dash/dodge cooldown göstergeleri
-Tools/UI/Create Quest HUD              → görev paneli
-Tools/Combat/Setup Player Attack       → saldırı bileşenleri
-Tools/Enemy/Create Enemy Animator      → düşman animator controller'ı
+Tools/Progression/Setup Game Flow      → wires up GameProgress + three gates + three objectives
+Tools/Player/Create Health Bar         → player health bar
+Tools/Player/Create Ability Buttons    → dash/dodge cooldown indicators
+Tools/UI/Create Quest HUD              → quest panel
+Tools/Combat/Setup Player Attack       → attack components
+Tools/Enemy/Create Enemy Animator      → enemy animator controller
 Tools/Boss/Create Boss Animator        → boss animator
-Tools/World/Create Rolling Ball Trap   → spawner + tetik alanını kurup birbirine bağlar
-Tools/World/Create Orange Pickup       → can eşyası + VFX slotları
-Tools/World/Create Ocean Death Zone    → okyanus ani ölüm hacmi
+Tools/World/Create Rolling Ball Trap   → creates the spawner + trigger volume and links them
+Tools/World/Create Orange Pickup       → health pickup + VFX slots
+Tools/World/Create Ocean Death Zone    → ocean instant-death volume
 ```
 
-Tam liste `Tools/` menüsünde. Her setup komutunun ne yaptığı, bağlı olduğu runtime script'in dosya başındaki açıklamasında da anlatılır.
+The full list lives in the `Tools/` menu. What each setup command does is also documented at the top of the runtime script it belongs to.
 
 ---
 
-## Proje yapısı
+## Project layout
 
 ```
 Assets/
-├─ Scenes/SampleScene.unity     tek oyun sahnesi
+├─ Scenes/SampleScene.unity     the single game scene
 ├─ Scripts/
-│  ├─ Player/                   state machine, girdi, saldırı, can, kamera
-│  ├─ Enemy/                    hırt takibi, BlackSwordsman, hırt odası pususu
-│  ├─ Boss/                     boss dövüşü, jump scare, heykeller
+│  ├─ Player/                   state machine, input, attacks, health, camera
+│  ├─ Enemy/                    goon chasing, BlackSwordsman, goon-room ambush
+│  ├─ Boss/                     boss fight, jump scare, statues
 │  ├─ Combat/                   Health, IDamageable
-│  ├─ Progression/              GameProgress, kapılar, hedefler, kapanış
-│  ├─ World/                    hasar kaynakları, yuvarlanan taşlar, loot, pickup
-│  └─ UI/                       can barları, görev paneli, cooldown göstergeleri
-├─ Editor/                      sahne kurulum araçları (Tools/ menüsü)
-├─ Animations/                  animator controller'ları
-├─ Models/                      karakter, boss, düşman modelleri ve texture'ları
+│  ├─ Progression/              GameProgress, gates, objectives, ending
+│  ├─ World/                    damage sources, rolling boulders, loot, pickups
+│  └─ UI/                       health bars, quest panel, cooldown indicators
+├─ Editor/                      scene setup tools (Tools/ menu)
+├─ Animations/                  animator controllers
+├─ Models/                      character, boss and enemy models with their textures
 ├─ Prefabs/                     OrangePickup, RollingBall
-└─ 3rdPartyAssets/              hazır paketler (aşağıya bak)
+└─ 3rdPartyAssets/              ready-made packages (see below)
 ```
 
-Kod içi dokümantasyon Türkçedir; her script'in başında ne yaptığı, neden öyle yazıldığı ve sahnede nasıl kurulacağı XML doc comment olarak durur.
+In-code documentation is written in Turkish: every script opens with what it does, why it was written that way, and how to set it up in the scene, as XML doc comments.
 
 ---
 
-## Kullanılan hazır varlıklar
+## Third-party assets
 
-Karakter, boss ve düşman modelleri ile animasyonlar bu jam için yapıldı. Ortam ve efektler için kullanılan ücretsiz Asset Store paketleri:
+The character, boss and enemy models along with the animations were made for this jam. The free Asset Store packages used for the environment and effects:
 
-- **LowPolyDungeons Lite** — zindan ortamı
-- **KE Statues Lite** — heykeller
-- **RPG Tiny Fantasy Forest PBR** — dış mekân / ada
-- **Playground Apocalypse** — çevre objeleri
-- **Eric VFX Studio – Free Game VFX** — efektler
-- **fabreffect – Free Slash VFX** — kılıç izleri
-- **PolyOne – Free Fruits** — can eşyası (portakal)
-
----
-
-## Bilinen sınırlar
-
-v1.0 Alpha, 72 saatte biten hâlidir:
-
-- Ana menü, ayarlar menüsü ve kayıt sistemi yok — ölünce sahne baştan yüklenir
-- Ses tasarımı eksik: birçok script'te (`StatueWatcher`, `BossRoomTurn`, `StageGate`) klip slotları hazır ama boş
-- Tuşlar sabit; yeniden atama yok
-- Sadece klavye + mouse; gamepad binding'leri kurulmadı
-- Sadece Windows build'i alındı
+- **LowPolyDungeons Lite** — dungeon environment
+- **KE Statues Lite** — statues
+- **RPG Tiny Fantasy Forest PBR** — exterior / island
+- **Playground Apocalypse** — environment props
+- **Eric VFX Studio – Free Game VFX** — effects
+- **fabreffect – Free Slash VFX** — sword trails
+- **PolyOne – Free Fruits** — health pickup (orange)
 
 ---
 
-## Geliştirme günlüğü
+## Known limitations
 
-| Gün | İş |
+v1.0 Alpha is where it stood when the 72 hours ran out:
+
+- No main menu, settings menu or save system — dying just reloads the scene
+- Sound design is unfinished: several scripts (`StatueWatcher`, `BossRoomTurn`, `StageGate`) have clip slots wired up but empty
+- Keys are fixed; no rebinding
+- Keyboard + mouse only; gamepad bindings were never set up
+- Windows is the only build target
+
+---
+
+## Development log
+
+| Day | Work |
 |---|---|
-| 16 Ağu | Proje kurulumu, URP |
-| 17 Ağu | Scriptler, ilk model, level planı, animasyonlar, harita + texture, boss odası, jump scare |
-| 18 Ağu | Dövüş mekanikleri, level design, boss fight düzeltmeleri, hırt odası, BlackSwordsman |
-| 19 Ağu | v1.0 Alpha |
+| Aug 16 | Project setup, URP |
+| Aug 17 | Scripts, first model, level plan, animations, map + textures, boss room, jump scare |
+| Aug 18 | Combat mechanics, level design, boss fight fixes, goon room, BlackSwordsman |
+| Aug 19 | v1.0 Alpha |
